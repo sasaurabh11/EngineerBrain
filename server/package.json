@@ -1,0 +1,17 @@
+{
+  "name": "engineer-brain",
+  "version": "1.0.0",
+  "description": "A system for helping Engineers",
+  "type": "module",
+  "keywords": [
+    "AI",
+    "Engineer",
+    "brain"
+  ],
+  "license": "ISC",
+  "author": "Saurabh",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
