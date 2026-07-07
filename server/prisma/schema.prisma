@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MANAGER
+  DEVELOPER
+  QA
+  VIEWER
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  clerkId      String   @unique
+  name         String
+  email        String   @unique
+  profileImage String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships OrganizationMember[]
+  ownedOrgs   Organization[]       @relation("OrganizationOwner")
+  sentInvites Invitation[]         @relation("InvitationInviter")
+
+  @@map("users")
+}
+
+model Organization {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  description String?
+  logoUrl     String?
+  ownerId     String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  owner       User                 @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  members     OrganizationMember[]
+  invitations Invitation[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String   @id @default(uuid())
+  userId         String
+  organizationId String
+  role           OrgRole
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([userId, organizationId])
+  @@map("organization_members")
+}
+
+model Invitation {
+  id             String           @id @default(uuid())
+  email          String
+  organizationId String
+  role           OrgRole
+  invitedById    String
+  token          String           @unique
+  status         InvitationStatus @default(PENDING)
+  expiresAt      DateTime
+  createdAt      DateTime         @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  invitedBy    User         @relation("InvitationInviter", fields: [invitedById], references: [id])
+
+  @@unique([email, organizationId, status])
+  @@map("invitations")
+}
