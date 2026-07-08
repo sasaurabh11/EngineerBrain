@@ -12,7 +12,9 @@ export function validate(schemas: ValidationSchemas): RequestHandler {
     try {
       if (schemas.body) req.body = schemas.body.parse(req.body);
       if (schemas.params) req.params = schemas.params.parse(req.params) as typeof req.params;
-      if (schemas.query) req.query = schemas.query.parse(req.query) as typeof req.query;
+      // Express 5's req.query is a getter with no setter, so we validate for
+      // correctness but can't write the parsed/transformed result back to it.
+      if (schemas.query) schemas.query.parse(req.query);
       next();
     } catch (err) {
       next(err);

@@ -6,6 +6,10 @@ export const organizationRepository = {
     return prisma.organization.findFirst({ where: { slug, deletedAt: null } });
   },
 
+  findById(id: string): Promise<Organization | null> {
+    return prisma.organization.findFirst({ where: { id, deletedAt: null } });
+  },
+
   listForUser(userId: string) {
     return prisma.organizationMember.findMany({
       where: { userId, organization: { deletedAt: null } },

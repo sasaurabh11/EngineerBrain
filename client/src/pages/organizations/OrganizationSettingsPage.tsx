@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useConnectGitHub, useDisconnectGitHub, useGitHubStatus } from "../../hooks/useGithub";
 import { useDeleteOrganization, useOrganization, useUpdateOrganization } from "../../hooks/useOrganizations";
 
 export function OrganizationSettingsPage() {
@@ -8,6 +9,13 @@ export function OrganizationSettingsPage() {
   const { data: organization } = useOrganization(orgSlug);
   const updateOrganization = useUpdateOrganization(orgSlug);
   const deleteOrganization = useDeleteOrganization();
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const githubCallbackResult = searchParams.get("github");
+  const { data: githubStatus, isLoading: isGithubLoading } = useGitHubStatus(orgSlug);
+  const connectGitHub = useConnectGitHub(orgSlug);
+  const disconnectGitHub = useDisconnectGitHub(orgSlug);
+  const [githubError, setGithubError] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -54,12 +62,57 @@ export function OrganizationSettingsPage() {
     }
   }
 
+  async function handleConnectGitHub() {
+    setGithubError(null);
+    try {
+      const { url } = await connectGitHub.mutateAsync();
+      window.location.href = url;
+    } catch (err) {
+      setGithubError(err instanceof Error ? err.message : "Failed to start GitHub connection");
+    }
+  }
+
+  async function handleDisconnectGitHub() {
+    if (!window.confirm("Disconnect GitHub? Imported repositories will stop syncing until reconnected.")) {
+      return;
+    }
+    setGithubError(null);
+    try {
+      await disconnectGitHub.mutateAsync();
+    } catch (err) {
+      setGithubError(err instanceof Error ? err.message : "Failed to disconnect GitHub");
+    }
+  }
+
+  function dismissGithubCallbackBanner() {
+    const next = new URLSearchParams(searchParams);
+    next.delete("github");
+    setSearchParams(next, { replace: true });
+  }
+
   if (!organization) {
     return <p className="text-sm text-gray-500">Loading...</p>;
   }
 
   return (
     <div className="max-w-xl space-y-6">
+      {githubCallbackResult === "connected" && (
+        <div className="flex items-center justify-between rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+          <span>GitHub connected successfully.</span>
+          <button type="button" onClick={dismissGithubCallbackBanner} className="text-green-700 hover:text-green-900">
+            Dismiss
+          </button>
+        </div>
+      )}
+      {githubCallbackResult === "error" && (
+        <div className="flex items-center justify-between rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          <span>Something went wrong connecting GitHub. Please try again.</span>
+          <button type="button" onClick={dismissGithubCallbackBanner} className="text-red-700 hover:text-red-900">
+            Dismiss
+          </button>
+        </div>
+      )}
+
       <section className="rounded border border-gray-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-gray-900">Organization settings</h2>
         <form onSubmit={handleSave} className="space-y-3">
@@ -116,6 +169,54 @@ export function OrganizationSettingsPage() {
             </button>
           )}
         </form>
+      </section>
+
+      <section className="rounded border border-gray-200 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold text-gray-900">GitHub integration</h2>
+        {isGithubLoading && <p className="text-sm text-gray-500">Loading...</p>}
+        {githubError && <p className="mb-3 text-sm text-red-600">{githubError}</p>}
+
+        {!isGithubLoading && githubStatus?.connected && (
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-900">
+                Connected to <span className="font-medium">{githubStatus.accountLogin}</span>
+              </p>
+              <p className="text-xs text-gray-500">
+                {githubStatus.accountType === "ORGANIZATION" ? "Organization" : "User"} account
+                {githubStatus.connectedAt && ` · connected ${new Date(githubStatus.connectedAt).toLocaleDateString()}`}
+              </p>
+            </div>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={handleDisconnectGitHub}
+                disabled={disconnectGitHub.isPending}
+                className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                {disconnectGitHub.isPending ? "Disconnecting..." : "Disconnect"}
+              </button>
+            )}
+          </div>
+        )}
+
+        {!isGithubLoading && !githubStatus?.connected && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500">
+              {githubStatus?.status === "UNINSTALLED" ? "GitHub was disconnected." : "Not connected yet."}
+            </p>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={handleConnectGitHub}
+                disabled={connectGitHub.isPending}
+                className="rounded bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+              >
+                {connectGitHub.isPending ? "Connecting..." : "Connect GitHub"}
+              </button>
+            )}
+          </div>
+        )}
       </section>
 
       {canDelete && (

@@ -6,6 +6,7 @@ declare global {
       dbUser?: User;
       organization?: Organization;
       membership?: OrganizationMember;
+      rawBody?: Buffer;
     }
   }
 }

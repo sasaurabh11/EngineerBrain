@@ -24,6 +24,60 @@ enum InvitationStatus {
   DECLINED
 }
 
+enum GitHubAccountType {
+  USER
+  ORGANIZATION
+}
+
+enum InstallationStatus {
+  ACTIVE
+  SUSPENDED
+  UNINSTALLED
+}
+
+enum RepositoryVisibility {
+  PUBLIC
+  PRIVATE
+  INTERNAL
+}
+
+enum SyncStatus {
+  PENDING
+  SYNCING
+  SYNCED
+  FAILED
+}
+
+enum SyncJobStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum SyncTrigger {
+  MANUAL
+  WEBHOOK
+  SCHEDULED
+}
+
+enum PullRequestState {
+  OPEN
+  CLOSED
+  MERGED
+}
+
+enum IssueState {
+  OPEN
+  CLOSED
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+}
+
 model User {
   id           String   @id @default(uuid())
   clerkId      String   @unique
@@ -33,9 +87,11 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  memberships OrganizationMember[]
-  ownedOrgs   Organization[]       @relation("OrganizationOwner")
-  sentInvites Invitation[]         @relation("InvitationInviter")
+  memberships            OrganizationMember[]
+  ownedOrgs              Organization[]       @relation("OrganizationOwner")
+  sentInvites            Invitation[]         @relation("InvitationInviter")
+  connectedInstallations GitHubInstallation[] @relation("InstallationConnectedBy")
+  importedRepositories   Repository[]         @relation("RepositoryImportedBy")
 
   @@map("users")
 }
@@ -51,9 +107,11 @@ model Organization {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  owner       User                 @relation("OrganizationOwner", fields: [ownerId], references: [id])
-  members     OrganizationMember[]
-  invitations Invitation[]
+  owner              User                 @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  members            OrganizationMember[]
+  invitations        Invitation[]
+  githubInstallation GitHubInstallation?
+  repositories       Repository[]
 
   @@map("organizations")
 }
@@ -89,4 +147,188 @@ model Invitation {
 
   @@unique([email, organizationId])
   @@map("invitations")
+}
+
+model GitHubInstallation {
+  id                   String             @id @default(uuid())
+  organizationId       String             @unique
+  githubInstallationId BigInt             @unique
+  githubAccountLogin   String
+  githubAccountId      BigInt
+  githubAccountType    GitHubAccountType
+  status               InstallationStatus @default(ACTIVE)
+  connectedById        String
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  connectedBy  User         @relation("InstallationConnectedBy", fields: [connectedById], references: [id])
+  repositories Repository[]
+
+  @@map("github_installations")
+}
+
+model Repository {
+  id              String               @id @default(uuid())
+  organizationId  String
+  installationId  String
+  githubRepoId    BigInt
+  name            String
+  fullName        String
+  ownerLogin      String
+  description     String?
+  visibility      RepositoryVisibility
+  defaultBranch   String
+  primaryLanguage String?
+  topics          String[]
+  cloneUrl        String
+  htmlUrl         String
+  starsCount      Int
+  forksCount      Int
+  openIssuesCount Int
+  sizeKb          Int
+  githubPushedAt  DateTime?
+  githubCreatedAt DateTime
+  githubUpdatedAt DateTime
+  syncStatus      SyncStatus           @default(PENDING)
+  lastSyncedAt    DateTime?
+  importedById    String
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  installation GitHubInstallation @relation(fields: [installationId], references: [id])
+  importedBy   User               @relation("RepositoryImportedBy", fields: [importedById], references: [id])
+  branches     Branch[]
+  commits      Commit[]
+  contributors Contributor[]
+  pullRequests PullRequest[]
+  issues       Issue[]
+  syncs        RepositorySync[]
+
+  @@unique([organizationId, githubRepoId])
+  @@map("repositories")
+}
+
+model Branch {
+  id            String    @id @default(uuid())
+  repositoryId  String
+  name          String
+  isProtected   Boolean   @default(false)
+  lastCommitSha String
+  lastCommitAt  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, name])
+  @@map("branches")
+}
+
+model Commit {
+  id                String   @id @default(uuid())
+  repositoryId      String
+  sha               String
+  message           String
+  authorName        String
+  authorEmail       String
+  authorGithubLogin String?
+  committedAt       DateTime
+  htmlUrl           String
+  createdAt         DateTime @default(now())
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, sha])
+  @@map("commits")
+}
+
+model Contributor {
+  id            String   @id @default(uuid())
+  repositoryId  String
+  githubUserId  BigInt
+  githubLogin   String
+  avatarUrl     String?
+  contributions Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, githubUserId])
+  @@map("contributors")
+}
+
+model PullRequest {
+  id              String           @id @default(uuid())
+  repositoryId    String
+  githubId        BigInt
+  number          Int
+  title           String
+  state           PullRequestState
+  authorLogin     String
+  isDraft         Boolean          @default(false)
+  sourceBranch    String
+  targetBranch    String
+  htmlUrl         String
+  githubCreatedAt DateTime
+  githubUpdatedAt DateTime
+  mergedAt        DateTime?
+  closedAt        DateTime?
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, number])
+  @@map("pull_requests")
+}
+
+model Issue {
+  id              String     @id @default(uuid())
+  repositoryId    String
+  githubId        BigInt
+  number          Int
+  title           String
+  state           IssueState
+  authorLogin     String
+  labels          String[]
+  htmlUrl         String
+  githubCreatedAt DateTime
+  githubUpdatedAt DateTime
+  closedAt        DateTime?
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, number])
+  @@map("issues")
+}
+
+model RepositorySync {
+  id            String        @id @default(uuid())
+  repositoryId  String
+  trigger       SyncTrigger
+  triggeredById String?
+  status        SyncJobStatus
+  startedAt     DateTime      @default(now())
+  completedAt   DateTime?
+  errorMessage  String?
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@map("repository_syncs")
+}
+
+model WebhookEvent {
+  id               String             @id @default(uuid())
+  installationId   String?
+  githubDeliveryId String             @unique
+  eventType        String
+  action           String?
+  payload          Json
+  status           WebhookEventStatus @default(RECEIVED)
+  processedAt      DateTime?
+  errorMessage     String?
+  createdAt        DateTime           @default(now())
+
+  @@map("webhook_events")
 }

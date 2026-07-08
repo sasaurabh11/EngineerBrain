@@ -8,6 +8,10 @@ const envSchema = z.object({
   CLERK_PUBLISHABLE_KEY: z.string().min(1, "CLERK_PUBLISHABLE_KEY is required"),
   CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is required"),
   CLIENT_ORIGIN: z.string().min(1).default("http://localhost:5173"),
+  RABBITMQ_URL: z.string().min(1).default("amqp://engineerbrain:engineerbrain@localhost:5672"),
+  GITHUB_APP_ID: z.string().optional(),
+  GITHUB_APP_PRIVATE_KEY_BASE64: z.string().optional(),
+  GITHUB_WEBHOOK_SECRET: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
