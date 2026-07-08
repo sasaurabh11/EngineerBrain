@@ -25,3 +25,26 @@ export function useRevokeInvitation(orgSlug: string) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["invitations", orgSlug] }),
   });
 }
+
+export function useMyInvitations() {
+  return useQuery({ queryKey: ["invitations", "mine"], queryFn: invitationsApi.listMine });
+}
+
+export function useAcceptInvitation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (invitationId: string) => invitationsApi.acceptById(invitationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invitations", "mine"] });
+      queryClient.invalidateQueries({ queryKey: ["organizations"] });
+    },
+  });
+}
+
+export function useDeclineInvitation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (invitationId: string) => invitationsApi.declineById(invitationId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["invitations", "mine"] }),
+  });
+}

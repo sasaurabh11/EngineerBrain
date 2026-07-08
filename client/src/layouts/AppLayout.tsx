@@ -1,5 +1,6 @@
 import { UserButton } from "@clerk/clerk-react";
 import { Link, NavLink, Outlet, useNavigate, useParams } from "react-router-dom";
+import { useMyInvitations } from "../hooks/useInvitations";
 import { useOrganizations } from "../hooks/useOrganizations";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -9,6 +10,7 @@ export function AppLayout() {
   const { orgSlug } = useParams();
   const navigate = useNavigate();
   const { data: organizations } = useOrganizations();
+  const { data: invitations } = useMyInvitations();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -49,6 +51,14 @@ export function AppLayout() {
           </div>
 
           <div className="flex items-center gap-4">
+            {invitations && invitations.length > 0 && (
+              <Link
+                to="/organizations"
+                className="rounded-full bg-blue-600 px-2.5 py-0.5 text-xs font-medium text-white hover:bg-blue-700"
+              >
+                {invitations.length} invitation{invitations.length > 1 ? "s" : ""}
+              </Link>
+            )}
             <Link to="/profile" className="text-sm text-gray-500 hover:text-gray-900">
               Profile
             </Link>

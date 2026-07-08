@@ -28,11 +28,29 @@ export const invitationController = {
     sendSuccess(res, { revoked: true });
   },
 
-  async accept(req: Request, res: Response) {
-    const organizationId = await invitationService.accept(getParam(req, "token"), {
+  async acceptByToken(req: Request, res: Response) {
+    const organizationId = await invitationService.acceptByToken(getParam(req, "token"), {
       id: req.dbUser!.id,
       email: req.dbUser!.email,
     });
     sendSuccess(res, { organizationId });
+  },
+
+  async listMine(req: Request, res: Response) {
+    const invitations = await invitationService.listForCurrentUser(req.dbUser!.email);
+    sendSuccess(res, invitations);
+  },
+
+  async acceptById(req: Request, res: Response) {
+    const organizationId = await invitationService.acceptById(getParam(req, "invitationId"), {
+      id: req.dbUser!.id,
+      email: req.dbUser!.email,
+    });
+    sendSuccess(res, { organizationId });
+  },
+
+  async declineById(req: Request, res: Response) {
+    await invitationService.declineById(getParam(req, "invitationId"), { email: req.dbUser!.email });
+    sendSuccess(res, { declined: true });
   },
 };

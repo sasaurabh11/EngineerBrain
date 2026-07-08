@@ -9,11 +9,47 @@ import type { CreateInvitationInput, InvitationResponseDto } from "./invitation.
 
 const INVITATION_TTL_DAYS = 7;
 
-type InvitationWithInviter = NonNullable<Awaited<ReturnType<typeof invitationRepository.create>>>;
+type InvitationWithRelations = NonNullable<Awaited<ReturnType<typeof invitationRepository.create>>>;
+type BareInvitation = NonNullable<Awaited<ReturnType<typeof invitationRepository.findById>>>;
+
+async function performAccept(invitation: BareInvitation, currentUser: { id: string; email: string }): Promise<string> {
+  if (invitation.status !== "PENDING") {
+    throw new ConflictError("This invitation is no longer valid");
+  }
+
+  if (invitation.expiresAt < new Date()) {
+    await invitationRepository.delete(invitation.id);
+    throw new ConflictError("This invitation has expired");
+  }
+
+  if (invitation.email.toLowerCase() !== currentUser.email.toLowerCase()) {
+    throw new ForbiddenError("This invitation was sent to a different email address");
+  }
+
+  const existingMembership = await memberRepository.findByUserAndOrg(currentUser.id, invitation.organizationId);
+  if (existingMembership) {
+    await invitationRepository.delete(invitation.id);
+    throw new ConflictError("You are already a member of this organization");
+  }
+
+  await prisma.$transaction([
+    prisma.organizationMember.create({
+      data: { organizationId: invitation.organizationId, userId: currentUser.id, role: invitation.role },
+    }),
+    prisma.invitation.delete({ where: { id: invitation.id } }),
+  ]);
+
+  return invitation.organizationId;
+}
 
 export const invitationService = {
   async listByOrg(organizationId: string): Promise<InvitationResponseDto[]> {
     const invitations = await invitationRepository.listPendingByOrg(organizationId);
+    return invitations.map(invitationService.toResponse);
+  },
+
+  async listForCurrentUser(email: string): Promise<InvitationResponseDto[]> {
+    const invitations = await invitationRepository.listPendingForEmail(email);
     return invitations.map(invitationService.toResponse);
   },
 
@@ -56,8 +92,24 @@ export const invitationService = {
     await invitationRepository.delete(invitationId);
   },
 
-  async accept(token: string, currentUser: { id: string; email: string }): Promise<string> {
+  async acceptByToken(token: string, currentUser: { id: string; email: string }): Promise<string> {
     const invitation = await invitationRepository.findByToken(token);
+    if (!invitation) {
+      throw new NotFoundError("Invitation not found");
+    }
+    return performAccept(invitation, currentUser);
+  },
+
+  async acceptById(invitationId: string, currentUser: { id: string; email: string }): Promise<string> {
+    const invitation = await invitationRepository.findById(invitationId);
+    if (!invitation) {
+      throw new NotFoundError("Invitation not found");
+    }
+    return performAccept(invitation, currentUser);
+  },
+
+  async declineById(invitationId: string, currentUser: { email: string }): Promise<void> {
+    const invitation = await invitationRepository.findById(invitationId);
     if (!invitation) {
       throw new NotFoundError("Invitation not found");
     }
@@ -66,32 +118,14 @@ export const invitationService = {
       throw new ConflictError("This invitation is no longer valid");
     }
 
-    if (invitation.expiresAt < new Date()) {
-      await invitationRepository.updateStatus(invitation.id, "EXPIRED");
-      throw new ConflictError("This invitation has expired");
-    }
-
     if (invitation.email.toLowerCase() !== currentUser.email.toLowerCase()) {
       throw new ForbiddenError("This invitation was sent to a different email address");
     }
 
-    const existingMembership = await memberRepository.findByUserAndOrg(currentUser.id, invitation.organizationId);
-    if (existingMembership) {
-      await invitationRepository.updateStatus(invitation.id, "ACCEPTED");
-      throw new ConflictError("You are already a member of this organization");
-    }
-
-    await prisma.$transaction([
-      prisma.organizationMember.create({
-        data: { organizationId: invitation.organizationId, userId: currentUser.id, role: invitation.role },
-      }),
-      prisma.invitation.update({ where: { id: invitation.id }, data: { status: "ACCEPTED" } }),
-    ]);
-
-    return invitation.organizationId;
+    await invitationRepository.delete(invitation.id);
   },
 
-  toResponse(invitation: InvitationWithInviter): InvitationResponseDto {
+  toResponse(invitation: InvitationWithRelations): InvitationResponseDto {
     return {
       id: invitation.id,
       email: invitation.email,
@@ -104,6 +138,11 @@ export const invitationService = {
         id: invitation.invitedBy.id,
         name: invitation.invitedBy.name,
         email: invitation.invitedBy.email,
+      },
+      organization: {
+        id: invitation.organization.id,
+        name: invitation.organization.name,
+        slug: invitation.organization.slug,
       },
     };
   },

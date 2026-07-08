@@ -1,11 +1,19 @@
-import type { InvitationStatus, OrgRole } from "@prisma/client";
+import type { OrgRole } from "@prisma/client";
 import { prisma } from "../../database/prisma.ts";
 
 export const invitationRepository = {
   listPendingByOrg(organizationId: string) {
     return prisma.invitation.findMany({
       where: { organizationId, status: "PENDING" },
-      include: { invitedBy: true },
+      include: { invitedBy: true, organization: true },
+      orderBy: { createdAt: "desc" },
+    });
+  },
+
+  listPendingForEmail(email: string) {
+    return prisma.invitation.findMany({
+      where: { email: email.toLowerCase(), status: "PENDING" },
+      include: { invitedBy: true, organization: true },
       orderBy: { createdAt: "desc" },
     });
   },
@@ -28,12 +36,8 @@ export const invitationRepository = {
   }) {
     return prisma.invitation.create({
       data,
-      include: { invitedBy: true },
+      include: { invitedBy: true, organization: true },
     });
-  },
-
-  updateStatus(id: string, status: InvitationStatus) {
-    return prisma.invitation.update({ where: { id }, data: { status } });
   },
 
   delete(id: string): Promise<void> {

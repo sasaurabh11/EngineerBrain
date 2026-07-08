@@ -29,4 +29,18 @@ invitationRouter.delete(
   invitationController.revoke,
 );
 
-invitationRouter.post("/invitations/:token/accept", requireAuthenticatedUser, invitationController.accept);
+invitationRouter.post("/invitations/:token/accept", requireAuthenticatedUser, invitationController.acceptByToken);
+
+invitationRouter.get("/invitations/me", requireAuthenticatedUser, invitationController.listMine);
+
+invitationRouter.post(
+  "/invitations/me/:invitationId/accept",
+  requireAuthenticatedUser,
+  invitationController.acceptById,
+);
+
+invitationRouter.post(
+  "/invitations/me/:invitationId/decline",
+  requireAuthenticatedUser,
+  invitationController.declineById,
+);

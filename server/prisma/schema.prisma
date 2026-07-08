@@ -21,6 +21,7 @@ enum InvitationStatus {
   ACCEPTED
   EXPIRED
   REVOKED
+  DECLINED
 }
 
 model User {
@@ -86,6 +87,6 @@ model Invitation {
   organization Organization @relation(fields: [organizationId], references: [id])
   invitedBy    User         @relation("InvitationInviter", fields: [invitedById], references: [id])
 
-  @@unique([email, organizationId, status])
+  @@unique([email, organizationId])
   @@map("invitations")
 }

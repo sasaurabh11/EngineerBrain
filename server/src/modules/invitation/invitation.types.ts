@@ -13,6 +13,11 @@ export interface InvitationResponseDto {
     name: string;
     email: string;
   };
+  organization: {
+    id: string;
+    name: string;
+    slug: string;
+  };
 }
 
 export interface CreateInvitationInput {
