@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useConnectGitHub, useDisconnectGitHub, useGitHubStatus } from "../../hooks/useGithub";
 import { useDeleteOrganization, useOrganization, useUpdateOrganization } from "../../hooks/useOrganizations";
+import { getManageGitHubInstallationUrl } from "../../utils/github";
 
 export function OrganizationSettingsPage() {
   const { orgSlug = "" } = useParams();
@@ -187,16 +188,28 @@ export function OrganizationSettingsPage() {
                 {githubStatus.connectedAt && ` · connected ${new Date(githubStatus.connectedAt).toLocaleDateString()}`}
               </p>
             </div>
-            {canEdit && (
-              <button
-                type="button"
-                onClick={handleDisconnectGitHub}
-                disabled={disconnectGitHub.isPending}
-                className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                {disconnectGitHub.isPending ? "Disconnecting..." : "Disconnect"}
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {getManageGitHubInstallationUrl(githubStatus) && (
+                <a
+                  href={getManageGitHubInstallationUrl(githubStatus)!}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                >
+                  Manage repository access ↗
+                </a>
+              )}
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={handleDisconnectGitHub}
+                  disabled={disconnectGitHub.isPending}
+                  className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {disconnectGitHub.isPending ? "Disconnecting..." : "Disconnect"}
+                </button>
+              )}
+            </div>
           </div>
         )}
 

@@ -10,6 +10,7 @@ import {
   useSyncRepository,
 } from "../../hooks/useRepositories";
 import type { ListRepositoriesFilters } from "../../types/repository.types";
+import { getManageGitHubInstallationUrl } from "../../utils/github";
 
 const SYNC_STATUS_STYLES: Record<string, string> = {
   PENDING: "bg-gray-100 text-gray-600",
@@ -111,7 +112,19 @@ export function RepositoriesListPage() {
 
       {isImporting && (
         <section className="rounded border border-gray-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-gray-900">Available repositories</h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-900">Available repositories</h2>
+            {githubStatus && getManageGitHubInstallationUrl(githubStatus) && (
+              <a
+                href={getManageGitHubInstallationUrl(githubStatus)!}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-medium text-gray-500 hover:text-gray-900"
+              >
+                Don't see a repo? Manage access on GitHub ↗
+              </a>
+            )}
+          </div>
           {isLoadingAvailable && <p className="text-sm text-gray-500">Loading...</p>}
           <ul className="divide-y divide-gray-100">
             {availableRepos?.map((repo) => (

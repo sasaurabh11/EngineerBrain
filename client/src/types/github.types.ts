@@ -7,4 +7,5 @@ export interface GitHubStatus {
   accountLogin?: string;
   accountType?: GitHubAccountType;
   connectedAt?: string;
+  githubInstallationId?: string;
 }

@@ -44,6 +44,7 @@ export const githubService = {
       accountLogin: installation.githubAccountLogin,
       accountType: installation.githubAccountType,
       connectedAt: installation.createdAt,
+      githubInstallationId: installation.githubInstallationId.toString(),
     };
   },
 

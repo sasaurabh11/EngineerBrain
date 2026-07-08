@@ -6,4 +6,5 @@ export interface GitHubStatusDto {
   accountLogin?: string;
   accountType?: GitHubAccountType;
   connectedAt?: Date;
+  githubInstallationId?: string;
 }
