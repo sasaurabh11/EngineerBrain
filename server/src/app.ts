@@ -3,11 +3,10 @@ import cors from "cors";
 import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import { pinoHttp } from "pino-http";
 import { env } from "./config/env.ts";
-import { logger } from "./config/logger.ts";
 import { errorHandler } from "./middleware/error.middleware.ts";
 import { notFoundHandler } from "./middleware/notFound.middleware.ts";
+import { requestLogger } from "./middleware/requestLogger.middleware.ts";
 import { router } from "./routes/index.ts";
 
 export const app = express();
@@ -15,7 +14,7 @@ export const app = express();
 app.use(helmet());
 app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true }));
 app.use(express.json());
-app.use(pinoHttp({ logger }));
+app.use(requestLogger);
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,

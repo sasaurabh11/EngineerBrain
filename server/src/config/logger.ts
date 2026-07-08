@@ -3,5 +3,15 @@ import { env } from "./env.ts";
 
 export const logger = pino({
   level: env.NODE_ENV === "production" ? "info" : "debug",
-  transport: env.NODE_ENV !== "production" ? { target: "pino-pretty" } : undefined,
+  transport:
+    env.NODE_ENV !== "production"
+      ? {
+          target: "pino-pretty",
+          options: {
+            colorize: true,
+            translateTime: "HH:MM:ss",
+            ignore: "pid,hostname",
+          },
+        }
+      : undefined,
 });
