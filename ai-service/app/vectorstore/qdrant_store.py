@@ -69,13 +69,15 @@ def delete_by_file(repository_id: str, file_path: str) -> None:
     )
 
 
-def search(query_vector: list[float], repository_ids: list[str], limit: int = 10) -> list[dict]:
+def search(query_vector: list[float], repository_ids: list[str], kinds: list[str] | None = None, limit: int = 10) -> list[dict]:
+    must = [models.FieldCondition(key="repository_id", match=models.MatchAny(any=repository_ids))]
+    if kinds:
+        must.append(models.FieldCondition(key="kind", match=models.MatchAny(any=kinds)))
+
     results = _client.query_points(
         collection_name=COLLECTION_NAME,
         query=query_vector,
-        query_filter=models.Filter(
-            must=[models.FieldCondition(key="repository_id", match=models.MatchAny(any=repository_ids))]
-        ),
+        query_filter=models.Filter(must=must),
         limit=limit,
         with_payload=True,
     )

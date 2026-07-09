@@ -14,6 +14,8 @@ const envSchema = z.object({
   GITHUB_WEBHOOK_SECRET: z.string().optional(),
   AI_SERVICE_URL: z.string().min(1).default("http://localhost:8000"),
   AI_SERVICE_API_KEY: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_CHAT_MODEL: z.string().min(1).default("gemini-flash-latest"),
 });
 
 const parsed = envSchema.safeParse(process.env);

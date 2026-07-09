@@ -20,9 +20,10 @@ IGNORED_DIR_NAMES = {
 }
 
 MAX_FILE_SIZE_BYTES = 1_000_000
+DOCUMENTATION_EXTENSIONS = (".md", ".mdx")
 
 
-def walk_supported_files(root: Path) -> list[Path]:
+def _walk_files(root: Path, predicate) -> list[Path]:
     matches: list[Path] = []
     for path in root.rglob("*"):
         if not path.is_file():
@@ -31,9 +32,17 @@ def walk_supported_files(root: Path) -> list[Path]:
             continue
         if path.stat().st_size > MAX_FILE_SIZE_BYTES:
             continue
-        if is_supported_file(str(path)):
+        if predicate(path):
             matches.append(path)
     return matches
+
+
+def walk_supported_files(root: Path) -> list[Path]:
+    return _walk_files(root, lambda path: is_supported_file(str(path)))
+
+
+def walk_documentation_files(root: Path) -> list[Path]:
+    return _walk_files(root, lambda path: path.suffix.lower() in DOCUMENTATION_EXTENSIONS)
 
 
 def content_hash(data: bytes) -> str:

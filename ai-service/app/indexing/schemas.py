@@ -56,7 +56,8 @@ class GraphEdgePayload(BaseModel):
 
 
 class ApiEndpointPayload(BaseModel):
-    symbol_id: str
+    symbol_id: str | None
+    file_path: str
     method: str
     path: str
     framework: str

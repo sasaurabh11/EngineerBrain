@@ -5,6 +5,7 @@ import { tokenProvider } from "./api/axiosClient";
 import { AppLayout } from "./layouts/AppLayout";
 import { AuthLayout } from "./layouts/AuthLayout";
 import { AcceptInvitationPage } from "./pages/organizations/AcceptInvitationPage";
+import { AiChatPage } from "./pages/ai/AiChatPage";
 import { SignInPage } from "./pages/auth/SignInPage";
 import { SignUpPage } from "./pages/auth/SignUpPage";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
@@ -54,6 +55,8 @@ function App() {
             <Route path="/app/:orgSlug/settings" element={<OrganizationSettingsPage />} />
             <Route path="/app/:orgSlug/repositories" element={<RepositoriesListPage />} />
             <Route path="/app/:orgSlug/repositories/:repositoryId" element={<RepositoryDetailPage />} />
+            <Route path="/app/:orgSlug/ai" element={<AiChatPage />} />
+            <Route path="/app/:orgSlug/ai/:conversationId" element={<AiChatPage />} />
           </Route>
         </Route>
 

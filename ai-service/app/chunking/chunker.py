@@ -1,9 +1,12 @@
+import re
 from dataclasses import dataclass
 
 from app.parsers.base import ParsedFile, ParsedSymbol, SymbolKind
 
 MAX_CHUNK_CHARS = 8000
 OVERLAP_LINES = 5
+
+_HEADING_RE = re.compile(r"^#{1,6}\s+.+$")
 
 
 @dataclass
@@ -92,3 +95,36 @@ def build_symbol_chunks(symbol: ParsedSymbol, lines: list[str]) -> list[Chunk]:
         Chunk(kind=symbol.kind.value, content=piece, start_line=start, end_line=end, token_count=_estimate_tokens(piece))
         for piece, start, end in pieces
     ]
+
+
+def build_documentation_chunks(content: str) -> list[Chunk]:
+    """Splits a markdown file into one chunk per heading section (so search results
+    land on a coherent section rather than an arbitrary character window)."""
+    lines = content.splitlines()
+    heading_indices = [i for i, line in enumerate(lines) if _HEADING_RE.match(line)]
+
+    if not heading_indices:
+        pieces = _split_oversized(content, 1)
+        return [
+            Chunk(kind="DOCUMENTATION", content=piece, start_line=start, end_line=end, token_count=_estimate_tokens(piece))
+            for piece, start, end in pieces
+        ]
+
+    sections: list[tuple[int, int]] = []
+    if heading_indices[0] > 0:
+        sections.append((0, heading_indices[0] - 1))
+    for i, heading_index in enumerate(heading_indices):
+        end = heading_indices[i + 1] - 1 if i + 1 < len(heading_indices) else len(lines) - 1
+        sections.append((heading_index, end))
+
+    chunks: list[Chunk] = []
+    for start_idx, end_idx in sections:
+        section_text = "\n".join(lines[start_idx : end_idx + 1]).strip()
+        if not section_text:
+            continue
+        for piece, start, end in _split_oversized(section_text, start_idx + 1):
+            chunks.append(
+                Chunk(kind="DOCUMENTATION", content=piece, start_line=start, end_line=end, token_count=_estimate_tokens(piece))
+            )
+
+    return chunks

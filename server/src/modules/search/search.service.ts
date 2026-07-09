@@ -41,6 +41,7 @@ export const searchService = {
     repositoryId: string,
     queryText: string,
     limit = 10,
+    kinds?: string[],
   ): Promise<SearchResultDto[]> {
     const repo = await repoRepository.findByOrgAndId(organizationId, repositoryId);
     if (!repo) {
@@ -48,20 +49,25 @@ export const searchService = {
     }
 
     const result = await callAiService<AiSearchResult>("/internal/search", {
-      body: { query_text: queryText, repository_ids: [repositoryId], limit },
+      body: { query_text: queryText, repository_ids: [repositoryId], kinds, limit },
     });
 
     return hydrateResults(result.results);
   },
 
-  async searchOrganization(organizationId: string, queryText: string, limit = 10): Promise<SearchResultDto[]> {
+  async searchOrganization(
+    organizationId: string,
+    queryText: string,
+    limit = 10,
+    kinds?: string[],
+  ): Promise<SearchResultDto[]> {
     const repos = await prisma.repository.findMany({ where: { organizationId }, select: { id: true } });
     if (repos.length === 0) {
       return [];
     }
 
     const result = await callAiService<AiSearchResult>("/internal/search", {
-      body: { query_text: queryText, repository_ids: repos.map((r) => r.id), limit },
+      body: { query_text: queryText, repository_ids: repos.map((r) => r.id), kinds, limit },
     });
 
     return hydrateResults(result.results);

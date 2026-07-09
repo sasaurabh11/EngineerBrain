@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { sendSuccess } from "../common/response/formatResponse.ts";
+import { aiRouter } from "../modules/ai/ai.routes.ts";
 import { githubRouter } from "../modules/github/github.routes.ts";
 import { indexingRouter } from "../modules/indexing/indexing.routes.ts";
 import { invitationRouter } from "../modules/invitation/invitation.routes.ts";
@@ -25,3 +26,4 @@ router.use(repoRouter);
 router.use(webhookRouter);
 router.use(indexingRouter);
 router.use(searchRouter);
+router.use(aiRouter);

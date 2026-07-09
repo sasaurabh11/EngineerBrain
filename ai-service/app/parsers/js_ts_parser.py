@@ -1,14 +1,19 @@
+import re
+
 import tree_sitter_javascript as tsjs
 import tree_sitter_typescript as tsts
 from tree_sitter import Language, Node, Parser
 
-from app.parsers.base import BaseParser, ParsedFile, ParsedImport, ParsedSymbol, SymbolKind
+from app.parsers.base import BaseParser, ParsedFile, ParsedImport, ParsedRoute, ParsedSymbol, SymbolKind
 
 JAVASCRIPT_LANGUAGE = Language(tsjs.language())
 TYPESCRIPT_LANGUAGE = Language(tsts.language_typescript())
 TSX_LANGUAGE = Language(tsts.language_tsx())
 
 _VARIABLE_DECLARATION_TYPES = ("lexical_declaration", "variable_declaration")
+
+_HTTP_METHODS = {"get": "GET", "post": "POST", "put": "PUT", "delete": "DELETE", "patch": "PATCH", "all": "ANY"}
+_ROUTER_OBJECT_NAME = re.compile(r"(router|app)$", re.I)
 
 
 def _text(node: Node, source: bytes) -> str:
@@ -266,6 +271,32 @@ def _extract_interface(node: Node, source: bytes, comment_anchor: Node) -> Parse
     )
 
 
+def _collect_routes(node: Node, source: bytes, routes: list[ParsedRoute]) -> None:
+    """Finds imperative Express-style route registrations: `router.get("/x", ...)` /
+    `app.post("/y", ...)`. Decorator-based routes (NestJS/Spring/FastAPI) are handled
+    separately since they attach to a symbol rather than a bare call expression."""
+    if node.type == "call_expression":
+        func = node.child_by_field_name("function")
+        if func is not None and func.type == "member_expression":
+            obj = func.child_by_field_name("object")
+            prop = func.child_by_field_name("property")
+            if obj is not None and prop is not None and obj.type == "identifier":
+                http_method = _HTTP_METHODS.get(_text(prop, source).lower())
+                if http_method is not None and _ROUTER_OBJECT_NAME.search(_text(obj, source)):
+                    args = node.child_by_field_name("arguments")
+                    first_arg = next(
+                        (c for c in (args.children if args is not None else []) if c.type not in ("(", ")", ",")),
+                        None,
+                    )
+                    if first_arg is not None and first_arg.type == "string":
+                        path = _string_value(first_arg, source)
+                        if path.startswith("/"):
+                            routes.append(ParsedRoute(method=http_method, path=path, line=node.start_point[0] + 1))
+
+    for child in node.children:
+        _collect_routes(child, source, routes)
+
+
 class _JsFamilyParser(BaseParser):
     def __init__(self, language: str, ts_language: Language, file_extensions: tuple[str, ...]) -> None:
         self.language = language
@@ -308,12 +339,16 @@ class _JsFamilyParser(BaseParser):
         if root.children and root.children[0].type == "comment":
             module_doc = _clean_comment(_text(root.children[0], source_code))
 
+        routes: list[ParsedRoute] = []
+        _collect_routes(root, source_code, routes)
+
         return ParsedFile(
             path=file_path,
             language=self.language,
             lines_of_code=len(source_code.splitlines()),
             imports=imports,
             symbols=symbols,
+            routes=routes,
             module_doc_comment=module_doc,
         )
 

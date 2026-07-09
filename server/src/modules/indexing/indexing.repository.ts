@@ -70,6 +70,7 @@ export const indexingRepository = {
 
         if (touchedPaths.length > 0) {
           await tx.repositoryFile.deleteMany({ where: { repositoryId, path: { in: touchedPaths } } });
+          await tx.apiEndpoint.deleteMany({ where: { repositoryId, filePath: { in: touchedPaths } } });
         }
 
         if (result.changed_files.length === 0) {
@@ -163,6 +164,7 @@ export const indexingRepository = {
             data: result.api_endpoints.map((e) => ({
               repositoryId,
               symbolId: e.symbol_id,
+              filePath: e.file_path,
               method: e.method,
               path: e.path,
               framework: e.framework,
@@ -186,8 +188,26 @@ export const indexingRepository = {
     });
   },
 
+  findSymbolsByName(repositoryId: string, kinds: string[], name: string, take = 5) {
+    return prisma.codeSymbol.findMany({
+      where: { repositoryId, kind: { in: kinds as SymbolKind[] }, name: { contains: name, mode: "insensitive" } },
+      include: { file: { select: { path: true } } },
+      take,
+    });
+  },
+
   listGraphEdges(repositoryId: string) {
     return prisma.codeGraphEdge.findMany({ where: { repositoryId } });
+  },
+
+  listGraphEdgesWithNames(repositoryId: string) {
+    return prisma.codeGraphEdge.findMany({
+      where: { repositoryId },
+      include: {
+        sourceSymbol: { select: { name: true, kind: true } },
+        targetSymbol: { select: { name: true, kind: true } },
+      },
+    });
   },
 
   listApiEndpoints(repositoryId: string) {

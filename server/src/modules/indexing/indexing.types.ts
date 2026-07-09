@@ -48,7 +48,8 @@ export interface ApiEndpointResponseDto {
   method: string;
   path: string;
   framework: string;
-  symbolId: string;
+  filePath: string;
+  symbolId: string | null;
 }
 
 // Mirrors ai-service's app/indexing/schemas.py IndexResponse
@@ -92,7 +93,8 @@ export interface AiIndexResult {
     edge_type: string;
   }[];
   api_endpoints: {
-    symbol_id: string;
+    symbol_id: string | null;
+    file_path: string;
     method: string;
     path: string;
     framework: string;

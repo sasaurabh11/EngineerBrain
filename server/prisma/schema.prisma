@@ -130,6 +130,7 @@ model User {
   sentInvites            Invitation[]         @relation("InvitationInviter")
   connectedInstallations GitHubInstallation[] @relation("InstallationConnectedBy")
   importedRepositories   Repository[]         @relation("RepositoryImportedBy")
+  conversations          Conversation[]
 
   @@map("users")
 }
@@ -150,6 +151,7 @@ model Organization {
   invitations        Invitation[]
   githubInstallation GitHubInstallation?
   repositories       Repository[]
+  conversations      Conversation[]
 
   @@map("organizations")
 }
@@ -251,6 +253,8 @@ model Repository {
   chunks          Chunk[]
   graphEdges      CodeGraphEdge[]
   apiEndpoints    ApiEndpoint[]
+  conversations   Conversation[]
+  citations       Citation[]
 
   @@unique([organizationId, githubRepoId])
   @@map("repositories")
@@ -474,6 +478,7 @@ model Chunk {
   repository Repository     @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   file       RepositoryFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
   symbol     CodeSymbol?    @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+  citations  Citation[]
 
   @@index([repositoryId, embeddingStatus])
   @@map("chunks")
@@ -499,16 +504,92 @@ model CodeGraphEdge {
 model ApiEndpoint {
   id           String   @id @default(uuid())
   repositoryId String
-  symbolId     String
+  symbolId     String?
+  filePath     String
   method       String
   path         String
   framework    String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  symbol     CodeSymbol @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+  repository Repository  @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  symbol     CodeSymbol? @relation(fields: [symbolId], references: [id], onDelete: SetNull)
 
   @@index([repositoryId, method])
   @@map("api_endpoints")
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum ToolInvocationStatus {
+  SUCCESS
+  FAILED
+}
+
+model Conversation {
+  id             String   @id @default(uuid())
+  organizationId String
+  userId         String
+  repositoryId   String?
+  title          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repository   Repository?  @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
+  messages     Message[]
+
+  @@index([organizationId, userId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String      @id @default(uuid())
+  conversationId String
+  role           MessageRole
+  content        String
+  createdAt      DateTime    @default(now())
+
+  conversation    Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  toolInvocations ToolInvocation[]
+  citations       Citation[]
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+model ToolInvocation {
+  id         String               @id @default(uuid())
+  messageId  String
+  toolName   String
+  arguments  Json
+  result     Json?
+  status     ToolInvocationStatus
+  durationMs Int?
+  createdAt  DateTime             @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@map("tool_invocations")
+}
+
+model Citation {
+  id           String  @id @default(uuid())
+  messageId    String
+  chunkId      String?
+  filePath     String
+  repositoryId String
+
+  message    Message    @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  chunk      Chunk?     @relation(fields: [chunkId], references: [id], onDelete: SetNull)
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@map("citations")
 }

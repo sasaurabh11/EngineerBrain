@@ -2,10 +2,11 @@ import logging
 import uuid
 from pathlib import Path
 
-from app.chunking.chunker import build_module_chunk, build_symbol_chunks
+from app.chunking.chunker import build_documentation_chunks, build_module_chunk, build_symbol_chunks
 from app.embeddings.gemini_provider import GeminiEmbeddingProvider
 from app.embeddings.gemini_provider import is_configured as embeddings_configured
-from app.indexing.file_walker import content_hash, walk_supported_files
+from app.indexing.endpoint_detector import detect_decorator_endpoints
+from app.indexing.file_walker import content_hash, walk_documentation_files, walk_supported_files
 from app.indexing.framework_detector import detect_frameworks
 from app.indexing.schemas import (
     ApiEndpointPayload,
@@ -23,7 +24,7 @@ from app.vectorstore import qdrant_store
 
 logger = logging.getLogger(__name__)
 
-FileProcessResult = tuple[FilePayload, list[SymbolPayload], list[ChunkPayload], list[GraphEdgePayload]]
+FileProcessResult = tuple[FilePayload, list[SymbolPayload], list[ChunkPayload], list[GraphEdgePayload], list[ApiEndpointPayload]]
 
 
 def _flatten_symbols(
@@ -202,6 +203,12 @@ async def _process_file(
     chunks = await _build_chunks(parsed, lines, relative_path, id_pairs, module_symbol_id=module_symbol_id)
     await _embed_and_upsert(chunks, organization_id, repository_id, embedding_provider)
 
+    endpoints = detect_decorator_endpoints(symbol_payloads, relative_path)
+    endpoints.extend(
+        ApiEndpointPayload(symbol_id=None, file_path=relative_path, method=route.method, path=route.path, framework="Express")
+        for route in parsed.routes
+    )
+
     file_payload = FilePayload(
         path=relative_path,
         language=parsed.language,
@@ -210,7 +217,46 @@ async def _process_file(
         content_hash=content_hash(source_bytes),
     )
 
-    return file_payload, symbol_payloads, chunks, edges
+    return file_payload, symbol_payloads, chunks, edges, endpoints
+
+
+async def _process_documentation_file(
+    repo_path: Path,
+    file_abs_path: Path,
+    organization_id: str,
+    repository_id: str,
+    embedding_provider: GeminiEmbeddingProvider | None,
+) -> tuple[FilePayload, list[ChunkPayload]]:
+    relative_path = str(file_abs_path.relative_to(repo_path))
+    source_bytes = file_abs_path.read_bytes()
+    text = source_bytes.decode("utf-8", errors="replace")
+
+    qdrant_store.delete_by_file(repository_id, relative_path)
+
+    chunks = [
+        ChunkPayload(
+            id=str(uuid.uuid4()),
+            symbol_id=None,
+            file_path=relative_path,
+            kind=chunk.kind,
+            content=chunk.content,
+            start_line=chunk.start_line,
+            end_line=chunk.end_line,
+            token_count=chunk.token_count,
+        )
+        for chunk in build_documentation_chunks(text)
+    ]
+    await _embed_and_upsert(chunks, organization_id, repository_id, embedding_provider)
+
+    file_payload = FilePayload(
+        path=relative_path,
+        language="markdown",
+        size_bytes=len(source_bytes),
+        lines_of_code=len(text.splitlines()),
+        content_hash=content_hash(source_bytes),
+    )
+
+    return file_payload, chunks
 
 
 async def run_index(request: IndexRequest) -> IndexResponse:
@@ -246,11 +292,26 @@ async def run_index(request: IndexRequest) -> IndexResponse:
         if result is None:
             continue
 
-        file_payload, symbol_payloads, chunks, edges = result
+        file_payload, symbol_payloads, chunks, edges, endpoints = result
         changed_files.append(file_payload)
         all_symbols.extend(symbol_payloads)
         all_chunks.extend(chunks)
         all_edges.extend(edges)
+        all_endpoints.extend(endpoints)
+
+    for file_abs_path in walk_documentation_files(repo_path):
+        relative_path = str(file_abs_path.relative_to(repo_path))
+        current_paths.add(relative_path)
+
+        current_hash = content_hash(file_abs_path.read_bytes())
+        if previous_hashes.get(relative_path) == current_hash:
+            continue
+
+        file_payload, chunks = await _process_documentation_file(
+            repo_path, file_abs_path, request.organization_id, request.repository_id, embedding_provider
+        )
+        changed_files.append(file_payload)
+        all_chunks.extend(chunks)
 
     deleted_paths = [path for path in previous_hashes if path not in current_paths]
     for deleted_path in deleted_paths:

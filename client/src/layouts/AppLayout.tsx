@@ -43,6 +43,9 @@ export function AppLayout() {
                 <NavLink to={`/app/${orgSlug}/repositories`} className={navLinkClass}>
                   Repositories
                 </NavLink>
+                <NavLink to={`/app/${orgSlug}/ai`} className={navLinkClass}>
+                  AI Chat
+                </NavLink>
                 <NavLink to={`/app/${orgSlug}/members`} className={navLinkClass}>
                   Members
                 </NavLink>

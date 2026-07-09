@@ -12,7 +12,7 @@ async def search(request: SearchRequest) -> SearchResponse:
     vectors = await provider.embed([request.query_text], is_query=True)
     query_vector = vectors[0]
 
-    raw_results = qdrant_store.search(query_vector, request.repository_ids, limit=request.limit)
+    raw_results = qdrant_store.search(query_vector, request.repository_ids, kinds=request.kinds, limit=request.limit)
 
     return SearchResponse(
         results=[

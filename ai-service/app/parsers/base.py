@@ -30,12 +30,23 @@ class ParsedImport:
 
 
 @dataclass
+class ParsedRoute:
+    """A route registered imperatively (e.g. Express `router.get(path, handler)`),
+    as opposed to declaratively via a decorator/annotation on a symbol."""
+
+    method: str
+    path: str
+    line: int
+
+
+@dataclass
 class ParsedFile:
     path: str
     language: str
     lines_of_code: int
     imports: list[ParsedImport] = field(default_factory=list)
     symbols: list[ParsedSymbol] = field(default_factory=list)
+    routes: list[ParsedRoute] = field(default_factory=list)
     module_doc_comment: str | None = None
 
 

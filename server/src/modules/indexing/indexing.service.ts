@@ -123,6 +123,16 @@ export const indexingService = {
     }));
   },
 
+  async listGraphEdgesForAssistant(repositoryId: string) {
+    const edges = await indexingRepository.listGraphEdgesWithNames(repositoryId);
+    return edges.map((e) => ({
+      source: e.sourceSymbol.name,
+      sourceKind: e.sourceSymbol.kind,
+      target: e.targetSymbol?.name ?? e.targetPackageName,
+      edgeType: e.edgeType,
+    }));
+  },
+
   async listApiEndpoints(repositoryId: string): Promise<ApiEndpointResponseDto[]> {
     const endpoints = await indexingRepository.listApiEndpoints(repositoryId);
     return endpoints.map((e) => ({
@@ -130,6 +140,7 @@ export const indexingService = {
       method: e.method,
       path: e.path,
       framework: e.framework,
+      filePath: e.filePath,
       symbolId: e.symbolId,
     }));
   },
