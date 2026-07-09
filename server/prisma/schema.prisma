@@ -72,6 +72,44 @@ enum IssueState {
   CLOSED
 }
 
+enum IndexStatus {
+  PENDING
+  INDEXING
+  INDEXED
+  FAILED
+}
+
+enum SymbolKind {
+  MODULE
+  CLASS
+  INTERFACE
+  FUNCTION
+  METHOD
+}
+
+enum ChunkKind {
+  MODULE
+  CLASS
+  FUNCTION
+  METHOD
+  DOCUMENTATION
+}
+
+enum EmbeddingStatus {
+  PENDING
+  EMBEDDED
+  FAILED
+}
+
+enum GraphEdgeType {
+  IMPORTS
+  CALLS
+  EXTENDS
+  IMPLEMENTS
+  USES
+  DEPENDS_ON_PACKAGE
+}
+
 enum WebhookEventStatus {
   RECEIVED
   PROCESSED
@@ -206,6 +244,14 @@ model Repository {
   issues       Issue[]
   syncs        RepositorySync[]
 
+  repositoryIndex RepositoryIndex?
+  indexingJobs    IndexingJob[]
+  files           RepositoryFile[]
+  symbols         CodeSymbol[]
+  chunks          Chunk[]
+  graphEdges      CodeGraphEdge[]
+  apiEndpoints    ApiEndpoint[]
+
   @@unique([organizationId, githubRepoId])
   @@map("repositories")
 }
@@ -331,4 +377,138 @@ model WebhookEvent {
   createdAt        DateTime           @default(now())
 
   @@map("webhook_events")
+}
+
+model RepositoryIndex {
+  id                   String      @id @default(uuid())
+  repositoryId         String      @unique
+  status               IndexStatus @default(PENDING)
+  lastIndexedCommitSha String?
+  lastIndexedAt        DateTime?
+  detectedFrameworks   String[]
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@map("repository_indexes")
+}
+
+model IndexingJob {
+  id             String        @id @default(uuid())
+  repositoryId   String
+  trigger        SyncTrigger
+  triggeredById  String?
+  status         SyncJobStatus
+  filesProcessed Int           @default(0)
+  startedAt      DateTime      @default(now())
+  completedAt    DateTime?
+  errorMessage   String?
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@map("indexing_jobs")
+}
+
+model RepositoryFile {
+  id           String   @id @default(uuid())
+  repositoryId String
+  path         String
+  language     String
+  sizeBytes    Int
+  linesOfCode  Int
+  contentHash  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  repository Repository   @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  symbols    CodeSymbol[]
+  chunks     Chunk[]
+
+  @@unique([repositoryId, path])
+  @@map("repository_files")
+}
+
+model CodeSymbol {
+  id             String     @id @default(uuid())
+  repositoryId   String
+  fileId         String
+  parentSymbolId String?
+  kind           SymbolKind
+  name           String
+  signature      String?
+  docComment     String?
+  startLine      Int
+  endLine        Int
+  metadata       Json?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  repository    Repository      @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  file          RepositoryFile  @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  parentSymbol  CodeSymbol?     @relation("SymbolHierarchy", fields: [parentSymbolId], references: [id], onDelete: Cascade)
+  childSymbols  CodeSymbol[]    @relation("SymbolHierarchy")
+  chunks        Chunk[]
+  apiEndpoints  ApiEndpoint[]
+  outgoingEdges CodeGraphEdge[] @relation("EdgeSource")
+  incomingEdges CodeGraphEdge[] @relation("EdgeTarget")
+
+  @@index([repositoryId, kind])
+  @@map("code_symbols")
+}
+
+model Chunk {
+  id              String          @id @default(uuid())
+  repositoryId    String
+  fileId          String
+  symbolId        String?
+  kind            ChunkKind
+  content         String
+  tokenCount      Int
+  startLine       Int
+  endLine         Int
+  embeddingStatus EmbeddingStatus @default(PENDING)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  repository Repository     @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  file       RepositoryFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  symbol     CodeSymbol?    @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+
+  @@index([repositoryId, embeddingStatus])
+  @@map("chunks")
+}
+
+model CodeGraphEdge {
+  id                String        @id @default(uuid())
+  repositoryId      String
+  sourceSymbolId    String
+  targetSymbolId    String?
+  targetPackageName String?
+  edgeType          GraphEdgeType
+  createdAt         DateTime      @default(now())
+
+  repository   Repository  @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  sourceSymbol CodeSymbol  @relation("EdgeSource", fields: [sourceSymbolId], references: [id], onDelete: Cascade)
+  targetSymbol CodeSymbol? @relation("EdgeTarget", fields: [targetSymbolId], references: [id], onDelete: Cascade)
+
+  @@index([repositoryId, edgeType])
+  @@map("code_graph_edges")
+}
+
+model ApiEndpoint {
+  id           String   @id @default(uuid())
+  repositoryId String
+  symbolId     String
+  method       String
+  path         String
+  framework    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  symbol     CodeSymbol @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+
+  @@index([repositoryId, method])
+  @@map("api_endpoints")
 }

@@ -12,6 +12,8 @@ const envSchema = z.object({
   GITHUB_APP_ID: z.string().optional(),
   GITHUB_APP_PRIVATE_KEY_BASE64: z.string().optional(),
   GITHUB_WEBHOOK_SECRET: z.string().optional(),
+  AI_SERVICE_URL: z.string().min(1).default("http://localhost:8000"),
+  AI_SERVICE_API_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

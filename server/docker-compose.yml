@@ -11,5 +11,15 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: engineerbrain-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
 volumes:
   rabbitmq_data:
+  qdrant_data:

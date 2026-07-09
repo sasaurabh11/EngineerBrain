@@ -29,3 +29,9 @@ export async function getInstallationOctokit(githubInstallationId: number) {
   const app = getGitHubApp();
   return app.getInstallationOctokit(githubInstallationId);
 }
+
+export async function getInstallationAccessToken(githubInstallationId: number): Promise<string> {
+  const app = getGitHubApp();
+  const auth = await app.octokit.auth({ type: "installation", installationId: githubInstallationId });
+  return (auth as { token: string }).token;
+}

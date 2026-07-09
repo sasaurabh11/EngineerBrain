@@ -6,6 +6,7 @@ import { logger } from "../../config/logger.ts";
 export const QUEUES = {
   REPOSITORY_SYNC: "repository.sync",
   WEBHOOK_PROCESS: "webhook.process",
+  REPOSITORY_INDEX: "repository.index",
 } as const;
 
 const DEAD_LETTER_EXCHANGE = "dlx";
