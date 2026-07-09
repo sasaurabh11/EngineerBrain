@@ -1,7 +1,9 @@
 from app.parsers.base import BaseParser
+from app.parsers.java_parser import JavaParser
+from app.parsers.js_ts_parser import JavaScriptParser, TsxParser, TypeScriptParser
 from app.parsers.python_parser import PythonParser
 
-_PARSERS: list[BaseParser] = [PythonParser()]
+_PARSERS: list[BaseParser] = [PythonParser(), JavaScriptParser(), TypeScriptParser(), TsxParser(), JavaParser()]
 
 _EXTENSION_MAP: dict[str, BaseParser] = {ext: parser for parser in _PARSERS for ext in parser.file_extensions}
 

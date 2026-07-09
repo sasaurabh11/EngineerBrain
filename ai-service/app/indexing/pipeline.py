@@ -61,18 +61,28 @@ def _flatten_symbols(
 
 
 def _extends_edges(symbol_id: str, symbol: ParsedSymbol) -> list[GraphEdgePayload]:
-    if symbol.kind != SymbolKind.CLASS:
+    if symbol.kind not in (SymbolKind.CLASS, SymbolKind.INTERFACE):
         return []
+
+    edges: list[GraphEdgePayload] = []
 
     superclasses = symbol.metadata.get("superclasses")
-    if not superclasses:
-        return []
+    if superclasses:
+        names = [name.strip() for name in superclasses.split(",") if name.strip()]
+        edges.extend(
+            GraphEdgePayload(source_symbol_id=symbol_id, target_package_name=name, edge_type="EXTENDS")
+            for name in names
+        )
 
-    names = [name.strip() for name in superclasses.split(",") if name.strip()]
-    return [
-        GraphEdgePayload(source_symbol_id=symbol_id, target_package_name=name, edge_type="EXTENDS")
-        for name in names
-    ]
+    interfaces = symbol.metadata.get("interfaces")
+    if interfaces:
+        names = [name.strip() for name in interfaces.split(",") if name.strip()]
+        edges.extend(
+            GraphEdgePayload(source_symbol_id=symbol_id, target_package_name=name, edge_type="IMPLEMENTS")
+            for name in names
+        )
+
+    return edges
 
 
 def _import_edges(symbol_id: str, parsed: ParsedFile) -> list[GraphEdgePayload]:
