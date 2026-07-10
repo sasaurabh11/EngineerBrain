@@ -256,6 +256,7 @@ model Repository {
   apiEndpoints    ApiEndpoint[]
   conversations   Conversation[]
   citations       Citation[]
+  analyses        RepositoryAnalysis[]
 
   @@unique([organizationId, githubRepoId])
   @@map("repositories")
@@ -426,9 +427,10 @@ model RepositoryFile {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  repository Repository   @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  symbols    CodeSymbol[]
-  chunks     Chunk[]
+  repository          Repository      @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  symbols             CodeSymbol[]
+  chunks              Chunk[]
+  incomingImportEdges CodeGraphEdge[]
 
   @@unique([repositoryId, path])
   @@map("repository_files")
@@ -457,6 +459,7 @@ model CodeSymbol {
   apiEndpoints  ApiEndpoint[]
   outgoingEdges CodeGraphEdge[] @relation("EdgeSource")
   incomingEdges CodeGraphEdge[] @relation("EdgeTarget")
+  findings      Finding[]
 
   @@index([repositoryId, kind])
   @@map("code_symbols")
@@ -491,14 +494,17 @@ model CodeGraphEdge {
   sourceSymbolId    String
   targetSymbolId    String?
   targetPackageName String?
+  targetFileId      String?
   edgeType          GraphEdgeType
   createdAt         DateTime      @default(now())
 
-  repository   Repository  @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  sourceSymbol CodeSymbol  @relation("EdgeSource", fields: [sourceSymbolId], references: [id], onDelete: Cascade)
-  targetSymbol CodeSymbol? @relation("EdgeTarget", fields: [targetSymbolId], references: [id], onDelete: Cascade)
+  repository   Repository      @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  sourceSymbol CodeSymbol      @relation("EdgeSource", fields: [sourceSymbolId], references: [id], onDelete: Cascade)
+  targetSymbol CodeSymbol?     @relation("EdgeTarget", fields: [targetSymbolId], references: [id], onDelete: Cascade)
+  targetFile   RepositoryFile? @relation(fields: [targetFileId], references: [id], onDelete: SetNull)
 
   @@index([repositoryId, edgeType])
+  @@index([repositoryId, targetFileId])
   @@map("code_graph_edges")
 }
 
@@ -593,4 +599,76 @@ model Citation {
 
   @@index([messageId])
   @@map("citations")
+}
+
+enum AnalysisStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum FindingCategory {
+  QUALITY
+  SECURITY
+  PERFORMANCE
+  ARCHITECTURE
+  DEPENDENCY
+  PATTERN
+  SOLID
+}
+
+enum FindingSeverity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model RepositoryAnalysis {
+  id                   String         @id @default(uuid())
+  repositoryId         String
+  status               AnalysisStatus @default(PENDING)
+  trigger              SyncTrigger
+  triggeredById        String?
+  commitSha            String?
+  overallScore         Int?
+  architectureScore    Int?
+  securityScore        Int?
+  performanceScore     Int?
+  maintainabilityScore Int?
+  startedAt            DateTime       @default(now())
+  completedAt          DateTime?
+  errorMessage         String?
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  findings   Finding[]
+
+  @@index([repositoryId, startedAt])
+  @@map("repository_analyses")
+}
+
+model Finding {
+  id           String          @id @default(uuid())
+  analysisId   String
+  category     FindingCategory
+  type         String
+  severity     FindingSeverity
+  title        String
+  explanation  String
+  suggestedFix String?
+  confidence   Int
+  filePath     String?
+  startLine    Int?
+  endLine      Int?
+  symbolId     String?
+  metadata     Json?
+  createdAt    DateTime        @default(now())
+
+  analysis RepositoryAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  symbol   CodeSymbol?        @relation(fields: [symbolId], references: [id], onDelete: SetNull)
+
+  @@index([analysisId, category])
+  @@map("findings")
 }

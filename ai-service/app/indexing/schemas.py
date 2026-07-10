@@ -52,6 +52,7 @@ class GraphEdgePayload(BaseModel):
     source_symbol_id: str
     target_symbol_id: str | None = None
     target_package_name: str | None = None
+    target_file_path: str | None = None
     edge_type: str
 
 

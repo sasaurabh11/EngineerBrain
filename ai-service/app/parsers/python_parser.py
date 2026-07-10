@@ -92,11 +92,25 @@ def _extract_imports(node: Node, source: bytes) -> list[ParsedImport]:
         return [ParsedImport(module=module) for module in modules]
 
     if node.type == "import_from_statement":
-        dotted_names = [c for c in node.children if c.type == "dotted_name"]
-        if not dotted_names:
+        # Relative imports (`from .b import x`) parse as a `relative_import` node,
+        # not `dotted_name` - the previous version here only looked for
+        # `dotted_name` and silently mistook the first imported name for the module.
+        module_node = next((c for c in node.children if c.type in ("relative_import", "dotted_name")), None)
+        if module_node is None:
             return []
-        module = _text(dotted_names[0], source)
-        imported_names = [_text(c, source) for c in dotted_names[1:]]
+        module = _text(module_node, source)
+
+        imported_names: list[str] = []
+        for child in node.children:
+            if child is module_node:
+                continue
+            if child.type == "dotted_name":
+                imported_names.append(_text(child, source))
+            elif child.type == "aliased_import":
+                imported_names.append(_text(child, source))
+            elif child.type == "wildcard_import":
+                imported_names.append("*")
+
         return [ParsedImport(module=module, imported_names=imported_names)]
 
     return []

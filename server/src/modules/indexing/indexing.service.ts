@@ -4,6 +4,7 @@ import { callAiService } from "../../infra/aiService/aiServiceClient.ts";
 import { getInstallationAccessToken } from "../../infra/github/octokitApp.ts";
 import { QUEUES } from "../../infra/rabbitmq/connection.ts";
 import { publishToQueue } from "../../infra/rabbitmq/publisher.ts";
+import { analysisService } from "../analysis/analysis.service.ts";
 import { githubRepository } from "../github/github.repository.ts";
 import { repoRepository } from "../repo/repo.repository.ts";
 import { indexingRepository } from "./indexing.repository.ts";
@@ -70,6 +71,17 @@ export const indexingService = {
       detectedFrameworks: result.detected_frameworks,
     });
     await indexingRepository.markJobSuccess(jobId, result.files_processed);
+
+    // Chain straight into analysis so a freshly indexed repo gets a health
+    // report with no manual step. "SCHEDULED" marks this as system-triggered
+    // rather than a direct user click.
+    try {
+      await analysisService.enqueueAnalysis(repositoryId, "SCHEDULED", null);
+    } catch (err) {
+      if (!(err instanceof ConflictError)) {
+        throw err;
+      }
+    }
   },
 
   async getStatus(repositoryId: string): Promise<RepositoryIndexResponseDto> {

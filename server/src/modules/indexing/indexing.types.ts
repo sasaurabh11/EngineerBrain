@@ -90,6 +90,7 @@ export interface AiIndexResult {
     source_symbol_id: string;
     target_symbol_id: string | null;
     target_package_name: string | null;
+    target_file_path: string | null;
     edge_type: string;
   }[];
   api_endpoints: {

@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     embedding_model: str = "gemini-embedding-001"
     embedding_dimensions: int = 768
+    gemini_chat_model: str = "gemini-flash-latest"
 
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: str | None = None

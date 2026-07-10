@@ -11,8 +11,9 @@ import {
   useRepository,
   useSyncRepository,
 } from "../../hooks/useRepositories";
+import { HealthDashboard } from "./components/HealthDashboard";
 
-const TABS = ["Overview", "Knowledge", "Branches", "Commits", "Contributors", "Pull Requests", "Issues"] as const;
+const TABS = ["Overview", "Knowledge", "Health", "Branches", "Commits", "Contributors", "Pull Requests", "Issues"] as const;
 type Tab = (typeof TABS)[number];
 
 const SYNC_STATUS_STYLES: Record<string, string> = {
@@ -206,6 +207,8 @@ export function RepositoryDetailPage() {
           )}
         </div>
       )}
+
+      {tab === "Health" && <HealthDashboard orgSlug={orgSlug} repositoryId={repositoryId} />}
 
       {tab === "Branches" && (
         <ul className="divide-y divide-gray-100 rounded border border-gray-200 bg-white">

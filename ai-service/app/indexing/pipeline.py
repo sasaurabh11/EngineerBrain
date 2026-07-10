@@ -8,6 +8,7 @@ from app.embeddings.gemini_provider import is_configured as embeddings_configure
 from app.indexing.endpoint_detector import detect_decorator_endpoints
 from app.indexing.file_walker import content_hash, walk_documentation_files, walk_supported_files
 from app.indexing.framework_detector import detect_frameworks
+from app.indexing.import_resolver import resolve_import_target
 from app.indexing.schemas import (
     ApiEndpointPayload,
     ChunkPayload,
@@ -86,11 +87,19 @@ def _extends_edges(symbol_id: str, symbol: ParsedSymbol) -> list[GraphEdgePayloa
     return edges
 
 
-def _import_edges(symbol_id: str, parsed: ParsedFile) -> list[GraphEdgePayload]:
-    return [
-        GraphEdgePayload(source_symbol_id=symbol_id, target_package_name=imp.module, edge_type="IMPORTS")
-        for imp in parsed.imports
-    ]
+def _import_edges(symbol_id: str, parsed: ParsedFile, relative_path: str, all_paths: set[str]) -> list[GraphEdgePayload]:
+    edges: list[GraphEdgePayload] = []
+    for imp in parsed.imports:
+        target_file_path = resolve_import_target(relative_path, imp.module, parsed.language, all_paths)
+        edges.append(
+            GraphEdgePayload(
+                source_symbol_id=symbol_id,
+                target_package_name=imp.module,
+                target_file_path=target_file_path,
+                edge_type="IMPORTS",
+            )
+        )
+    return edges
 
 
 async def _build_chunks(
@@ -169,6 +178,7 @@ async def _process_file(
     organization_id: str,
     repository_id: str,
     embedding_provider: GeminiEmbeddingProvider | None,
+    all_paths: set[str],
 ) -> FileProcessResult | None:
     relative_path = str(file_abs_path.relative_to(repo_path))
     parser = get_parser_for_file(relative_path)
@@ -196,7 +206,7 @@ async def _process_file(
     symbol_payloads, id_pairs = _flatten_symbols(parsed.symbols, relative_path, parent_id=module_symbol_id)
     symbol_payloads.insert(0, module_symbol_payload)
 
-    edges: list[GraphEdgePayload] = _import_edges(module_symbol_id, parsed)
+    edges: list[GraphEdgePayload] = _import_edges(module_symbol_id, parsed, relative_path, all_paths)
     for symbol_id, symbol in id_pairs:
         edges.extend(_extends_edges(symbol_id, symbol))
 
@@ -268,6 +278,7 @@ async def run_index(request: IndexRequest) -> IndexResponse:
 
     previous_hashes = {f.path: f.content_hash for f in request.previous_files}
     current_files = walk_supported_files(repo_path)
+    all_paths: set[str] = {str(p.relative_to(repo_path)) for p in current_files}
     current_paths: set[str] = set()
 
     embedding_provider = GeminiEmbeddingProvider() if embeddings_configured() else None
@@ -288,7 +299,7 @@ async def run_index(request: IndexRequest) -> IndexResponse:
         if previous_hashes.get(relative_path) == current_hash:
             continue
 
-        result = await _process_file(repo_path, file_abs_path, request.organization_id, request.repository_id, embedding_provider)
+        result = await _process_file(repo_path, file_abs_path, request.organization_id, request.repository_id, embedding_provider, all_paths)
         if result is None:
             continue
 

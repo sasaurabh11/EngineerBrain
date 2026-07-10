@@ -2,9 +2,13 @@ import { apiExplorerTool } from "./apiExplorer.tool.ts";
 import { classReaderTool } from "./classReader.tool.ts";
 import { dependencyGraphTool } from "./dependencyGraph.tool.ts";
 import { documentationSearchTool } from "./documentationSearch.tool.ts";
+import { explainFindingTool } from "./explainFinding.tool.ts";
+import { explainPatternTool } from "./explainPattern.tool.ts";
+import { explainScoreTool } from "./explainScore.tool.ts";
 import { fileReaderTool } from "./fileReader.tool.ts";
 import { frameworkDetectionTool } from "./frameworkDetection.tool.ts";
 import { functionReaderTool } from "./functionReader.tool.ts";
+import { healthReportTool } from "./healthReport.tool.ts";
 import { repositoryStructureTool } from "./repositoryStructure.tool.ts";
 import { semanticSearchTool } from "./semanticSearch.tool.ts";
 import type { AiTool } from "./tool.types.ts";
@@ -19,6 +23,10 @@ const TOOLS: AiTool<any>[] = [
   classReaderTool,
   functionReaderTool,
   apiExplorerTool,
+  healthReportTool,
+  explainFindingTool,
+  explainPatternTool,
+  explainScoreTool,
 ];
 
 const toolsByName = new Map(TOOLS.map((tool) => [tool.name, tool]));

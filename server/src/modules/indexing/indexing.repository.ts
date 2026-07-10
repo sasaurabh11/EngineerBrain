@@ -148,12 +148,32 @@ export const indexingRepository = {
         }
 
         if (result.graph_edges.length > 0) {
+          const unresolvedPaths = [
+            ...new Set(
+              result.graph_edges
+                .map((e) => e.target_file_path)
+                .filter((path): path is string => path !== null && !fileIdByPath.has(path)),
+            ),
+          ];
+
+          const targetFileIdByPath = new Map<string, string>(fileIdByPath);
+          if (unresolvedPaths.length > 0) {
+            const existingFiles = await tx.repositoryFile.findMany({
+              where: { repositoryId, path: { in: unresolvedPaths } },
+              select: { id: true, path: true },
+            });
+            for (const file of existingFiles) {
+              targetFileIdByPath.set(file.path, file.id);
+            }
+          }
+
           await tx.codeGraphEdge.createMany({
             data: result.graph_edges.map((e) => ({
               repositoryId,
               sourceSymbolId: e.source_symbol_id,
               targetSymbolId: e.target_symbol_id,
               targetPackageName: e.target_package_name,
+              targetFileId: e.target_file_path ? (targetFileIdByPath.get(e.target_file_path) ?? null) : null,
               edgeType: e.edge_type as GraphEdgeType,
             })),
           });

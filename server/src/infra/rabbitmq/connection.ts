@@ -7,6 +7,7 @@ export const QUEUES = {
   REPOSITORY_SYNC: "repository.sync",
   WEBHOOK_PROCESS: "webhook.process",
   REPOSITORY_INDEX: "repository.index",
+  REPOSITORY_ANALYZE: "repository.analyze",
 } as const;
 
 const DEAD_LETTER_EXCHANGE = "dlx";
