@@ -1,8 +1,18 @@
-import type { Organization, OrgRole } from "@prisma/client";
+import { Prisma, type Organization, type OrgRole } from "@prisma/client";
 import { prisma } from "../../database/prisma.ts";
 import { generateUniqueSlug } from "../../utils/slug.ts";
 import { organizationRepository } from "./organization.repository.ts";
 import type { CreateOrganizationInput, OrganizationResponseDto, UpdateOrganizationInput } from "./organization.types.ts";
+
+const MAX_SLUG_ATTEMPTS = 3;
+
+function isSlugConflict(err: unknown): boolean {
+  return (
+    err instanceof Prisma.PrismaClientKnownRequestError &&
+    err.code === "P2002" &&
+    Boolean((err.meta?.target as string[] | undefined)?.includes("slug"))
+  );
+}
 
 export const organizationService = {
   async listForUser(userId: string): Promise<OrganizationResponseDto[]> {
@@ -11,27 +21,35 @@ export const organizationService = {
   },
 
   async create(userId: string, input: CreateOrganizationInput): Promise<OrganizationResponseDto> {
-    const slug = await generateUniqueSlug(input.name);
+    for (let attempt = 1; attempt <= MAX_SLUG_ATTEMPTS; attempt++) {
+      try {
+        const organization = await prisma.$transaction(async (tx) => {
+          const org = await tx.organization.create({
+            data: {
+              name: input.name,
+              slug: generateUniqueSlug(input.name),
+              description: input.description ?? null,
+              logoUrl: input.logoUrl ?? null,
+              ownerId: userId,
+            },
+          });
 
-    const organization = await prisma.$transaction(async (tx) => {
-      const org = await tx.organization.create({
-        data: {
-          name: input.name,
-          slug,
-          description: input.description ?? null,
-          logoUrl: input.logoUrl ?? null,
-          ownerId: userId,
-        },
-      });
+          await tx.organizationMember.create({
+            data: { organizationId: org.id, userId, role: "OWNER" },
+          });
 
-      await tx.organizationMember.create({
-        data: { organizationId: org.id, userId, role: "OWNER" },
-      });
+          return org;
+        });
 
-      return org;
-    });
+        return organizationService.toResponse(organization, "OWNER");
+      } catch (err) {
+        if (!isSlugConflict(err) || attempt === MAX_SLUG_ATTEMPTS) {
+          throw err;
+        }
+      }
+    }
 
-    return organizationService.toResponse(organization, "OWNER");
+    throw new Error("Failed to generate a unique organization slug");
   },
 
   update(organizationId: string, input: UpdateOrganizationInput): Promise<Organization> {

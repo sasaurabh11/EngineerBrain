@@ -2,6 +2,7 @@ import type { RepositoryVisibility } from "@prisma/client";
 import { BadRequestError, ConflictError, NotFoundError } from "../../common/errors/AppError.ts";
 import { getInstallationOctokit } from "../../infra/github/octokitApp.ts";
 import { githubRepository } from "../github/github.repository.ts";
+import { indexingService } from "../indexing/indexing.service.ts";
 import { syncService } from "../sync/sync.service.ts";
 import { repoRepository, type RepositoryUpsertData } from "./repo.repository.ts";
 import type {
@@ -138,6 +139,7 @@ export const repoService = {
 
       const created = await repoRepository.create(data);
       await syncService.enqueueSync(created.id, "MANUAL", userId);
+      await indexingService.enqueueIndex(created.id, "MANUAL", userId, true);
       imported.push(repoService.toResponse(created));
     }
 

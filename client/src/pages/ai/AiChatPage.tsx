@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useRepositories } from "../../hooks/useRepositories";
 import {
   useConversation,
@@ -51,7 +51,8 @@ function ConversationSidebar({ orgSlug, activeId }: { orgSlug: string; activeId:
 
 function NewConversationPanel({ orgSlug }: { orgSlug: string }) {
   const { data: repositories } = useRepositories(orgSlug, {});
-  const [repositoryId, setRepositoryId] = useState<string>("");
+  const [searchParams] = useSearchParams();
+  const [repositoryId, setRepositoryId] = useState<string>(searchParams.get("repositoryId") ?? "");
   const createConversation = useCreateConversation(orgSlug);
   const navigate = useNavigate();
 

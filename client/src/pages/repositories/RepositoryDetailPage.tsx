@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useOrganization } from "../../hooks/useOrganizations";
+import { useIndexStatus, useReindex, useTriggerIndex } from "../../hooks/useIndexing";
 import {
   useBranches,
   useCommits,
@@ -11,13 +12,20 @@ import {
   useSyncRepository,
 } from "../../hooks/useRepositories";
 
-const TABS = ["Overview", "Branches", "Commits", "Contributors", "Pull Requests", "Issues"] as const;
+const TABS = ["Overview", "Knowledge", "Branches", "Commits", "Contributors", "Pull Requests", "Issues"] as const;
 type Tab = (typeof TABS)[number];
 
 const SYNC_STATUS_STYLES: Record<string, string> = {
   PENDING: "bg-gray-100 text-gray-600",
   SYNCING: "bg-blue-100 text-blue-700",
   SYNCED: "bg-green-100 text-green-700",
+  FAILED: "bg-red-100 text-red-700",
+};
+
+const INDEX_STATUS_STYLES: Record<string, string> = {
+  PENDING: "bg-gray-100 text-gray-600",
+  INDEXING: "bg-blue-100 text-blue-700",
+  INDEXED: "bg-green-100 text-green-700",
   FAILED: "bg-red-100 text-red-700",
 };
 
@@ -39,6 +47,10 @@ export function RepositoryDetailPage() {
   const [syncError, setSyncError] = useState<string | null>(null);
 
   const canManage = organization?.role === "OWNER" || organization?.role === "ADMIN";
+
+  const { data: indexStatus } = useIndexStatus(orgSlug, repositoryId);
+  const triggerIndex = useTriggerIndex(orgSlug, repositoryId);
+  const reindex = useReindex(orgSlug, repositoryId);
 
   const { data: branches } = useBranches(orgSlug, tab === "Branches" ? repositoryId : undefined);
   const { data: commits } = useCommits(orgSlug, tab === "Commits" ? repositoryId : undefined);
@@ -126,6 +138,72 @@ export function RepositoryDetailPage() {
               </a>
             }
           />
+        </div>
+      )}
+
+      {tab === "Knowledge" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between rounded border border-gray-200 bg-white p-4">
+            <div>
+              <p className="text-sm text-gray-900">
+                Indexing status:{" "}
+                <span
+                  className={`rounded px-2 py-0.5 text-xs font-medium ${
+                    INDEX_STATUS_STYLES[indexStatus?.status ?? "PENDING"]
+                  }`}
+                >
+                  {indexStatus?.status ?? "PENDING"}
+                </span>
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                {indexStatus?.lastIndexedAt
+                  ? `Last indexed ${new Date(indexStatus.lastIndexedAt).toLocaleString()}`
+                  : "This repository hasn't been indexed yet - the AI assistant won't have any context on it until it is."}
+              </p>
+            </div>
+            {canManage && (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => triggerIndex.mutate()}
+                  disabled={indexStatus?.status === "INDEXING" || triggerIndex.isPending}
+                  className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {indexStatus?.status === "PENDING" ? "Start indexing" : "Index changes"}
+                </button>
+                {indexStatus?.status === "INDEXED" && (
+                  <button
+                    type="button"
+                    onClick={() => reindex.mutate()}
+                    disabled={reindex.isPending}
+                    className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Full re-index
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {indexStatus?.status === "INDEXED" && (
+            <>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <InfoRow label="Files indexed" value={String(indexStatus.totalFiles)} />
+                <InfoRow label="Symbols extracted" value={String(indexStatus.totalSymbols)} />
+                <InfoRow label="Chunks embedded" value={String(indexStatus.totalChunks)} />
+              </div>
+              <InfoRow
+                label="Detected frameworks"
+                value={indexStatus.detectedFrameworks.length > 0 ? indexStatus.detectedFrameworks.join(", ") : "None detected"}
+              />
+              <Link
+                to={`/app/${orgSlug}/ai?repositoryId=${repositoryId}`}
+                className="inline-block text-sm text-blue-600 underline"
+              >
+                Ask the AI assistant about this repository
+              </Link>
+            </>
+          )}
         </div>
       )}
 

@@ -13,7 +13,7 @@ import { buildMessages, buildSystemInstruction } from "./promptBuilder.ts";
 import { toolRegistry } from "./tools/registry.ts";
 import type { ToolContext } from "./tools/tool.types.ts";
 
-const MAX_TOOL_ROUNDS = 5;
+const MAX_TOOL_ROUNDS = 8;
 const HISTORY_LIMIT = 20;
 
 function toConversationDto(convo: { id: string; title: string | null; repositoryId: string | null; createdAt: Date; updatedAt: Date; repository?: { name: string } | null }): ConversationResponseDto {
@@ -138,8 +138,13 @@ export const aiService = {
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const toolCalls: { id: string; name: string; args: Record<string, unknown>; thoughtSignature?: string }[] = [];
       let streamErrored = false;
+      // Reserve the last round as tool-free so the model is forced to synthesize
+      // a text answer from whatever it already gathered, instead of attempting
+      // another tool call and running out of rounds with nothing to show.
+      const isFinalRound = round === MAX_TOOL_ROUNDS - 1;
+      const tools = isFinalRound ? [] : toolRegistry.schemas();
 
-      for await (const event of geminiProvider.streamChat({ systemInstruction, messages, tools: toolRegistry.schemas(), signal })) {
+      for await (const event of geminiProvider.streamChat({ systemInstruction, messages, tools, signal })) {
         if (event.type === "text-delta") {
           assembledText += event.text;
           yield { type: "text-delta", text: event.text };
@@ -192,7 +197,13 @@ export const aiService = {
 
         yield { type: "tool-result", name: call.name, status };
         pendingToolInvocations.push({ toolName: call.name, arguments: call.args, result, status, durationMs: Date.now() - startedAt });
-        responseParts.push({ functionResponse: { id: call.id, name: call.name, response: result as Record<string, unknown> } });
+        // Gemini's functionResponse.response must be a JSON object, not a bare
+        // array/primitive - several tools (e.g. semantic_search) return arrays directly.
+        const responsePayload =
+          result !== null && typeof result === "object" && !Array.isArray(result)
+            ? (result as Record<string, unknown>)
+            : { results: result };
+        responseParts.push({ functionResponse: { id: call.id, name: call.name, response: responsePayload } });
       }
 
       messages.push({ role: "user", parts: responseParts });

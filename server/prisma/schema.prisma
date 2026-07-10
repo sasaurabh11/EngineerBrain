@@ -90,6 +90,7 @@ enum SymbolKind {
 enum ChunkKind {
   MODULE
   CLASS
+  INTERFACE
   FUNCTION
   METHOD
   DOCUMENTATION

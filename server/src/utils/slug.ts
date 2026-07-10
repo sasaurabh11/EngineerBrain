@@ -1,4 +1,4 @@
-import { prisma } from "../database/prisma.ts";
+import { randomBytes } from "node:crypto";
 
 export function slugify(input: string): string {
   return input
@@ -8,15 +8,12 @@ export function slugify(input: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export async function generateUniqueSlug(name: string): Promise<string> {
+
+function randomSuffix(): string {
+  return randomBytes(3).toString("hex");
+}
+
+export function generateUniqueSlug(name: string): string {
   const base = slugify(name) || "organization";
-  let candidate = base;
-  let suffix = 2;
-
-  while (await prisma.organization.findUnique({ where: { slug: candidate } })) {
-    candidate = `${base}-${suffix}`;
-    suffix += 1;
-  }
-
-  return candidate;
+  return `${base}-${randomSuffix()}`;
 }
