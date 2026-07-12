@@ -9,6 +9,7 @@ import { memberRouter } from "../modules/member/member.routes.ts";
 import { organizationRouter } from "../modules/organization/organization.routes.ts";
 import { repoRouter } from "../modules/repo/repo.routes.ts";
 import { searchRouter } from "../modules/search/search.routes.ts";
+import { taskRouter } from "../modules/tasks/task.routes.ts";
 import { userRouter } from "../modules/user/user.routes.ts";
 import { webhookRouter } from "../modules/webhook/webhook.routes.ts";
 
@@ -29,3 +30,4 @@ router.use(indexingRouter);
 router.use(searchRouter);
 router.use(aiRouter);
 router.use(analysisRouter);
+router.use(taskRouter);

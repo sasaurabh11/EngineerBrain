@@ -1,5 +1,6 @@
 import { apiExplorerTool } from "./apiExplorer.tool.ts";
 import { classReaderTool } from "./classReader.tool.ts";
+import { createGithubCommentTool } from "./createGithubComment.tool.ts";
 import { dependencyGraphTool } from "./dependencyGraph.tool.ts";
 import { documentationSearchTool } from "./documentationSearch.tool.ts";
 import { explainFindingTool } from "./explainFinding.tool.ts";
@@ -12,6 +13,8 @@ import { healthReportTool } from "./healthReport.tool.ts";
 import { repositoryStructureTool } from "./repositoryStructure.tool.ts";
 import { semanticSearchTool } from "./semanticSearch.tool.ts";
 import type { AiTool } from "./tool.types.ts";
+import { triggerReanalysisTool } from "./triggerReanalysis.tool.ts";
+import { triggerReindexTool } from "./triggerReindex.tool.ts";
 
 const TOOLS: AiTool<any>[] = [
   semanticSearchTool,
@@ -27,6 +30,9 @@ const TOOLS: AiTool<any>[] = [
   explainFindingTool,
   explainPatternTool,
   explainScoreTool,
+  triggerReanalysisTool,
+  triggerReindexTool,
+  createGithubCommentTool,
 ];
 
 const toolsByName = new Map(TOOLS.map((tool) => [tool.name, tool]));
@@ -40,7 +46,21 @@ export const toolRegistry = {
     return toolsByName.get(name);
   },
 
+  isWriteTool(name: string): boolean {
+    return toolsByName.get(name)?.permission === "write";
+  },
+
   schemas() {
     return TOOLS.map((tool) => ({ name: tool.name, description: tool.description, parameters: tool.parameters }));
+  },
+
+  // Excludes write tools - the conversational chat loop never gets access to
+  // mutating tools, only the Task Execution Engine does (with its approval gate).
+  readOnlySchemas() {
+    return TOOLS.filter((tool) => tool.permission !== "write").map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.parameters,
+    }));
   },
 };

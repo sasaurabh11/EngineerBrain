@@ -15,6 +15,8 @@ import { OrganizationsListPage } from "./pages/organizations/OrganizationsListPa
 import { ProfilePage } from "./pages/profile/ProfilePage";
 import { RepositoriesListPage } from "./pages/repositories/RepositoriesListPage";
 import { RepositoryDetailPage } from "./pages/repositories/RepositoryDetailPage";
+import { AgentDashboardPage } from "./pages/tasks/AgentDashboardPage";
+import { TaskDetailPage } from "./pages/tasks/TaskDetailPage";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 
 function ClerkAxiosBridge() {
@@ -57,6 +59,8 @@ function App() {
             <Route path="/app/:orgSlug/repositories/:repositoryId" element={<RepositoryDetailPage />} />
             <Route path="/app/:orgSlug/ai" element={<AiChatPage />} />
             <Route path="/app/:orgSlug/ai/:conversationId" element={<AiChatPage />} />
+            <Route path="/app/:orgSlug/tasks" element={<AgentDashboardPage />} />
+            <Route path="/app/:orgSlug/tasks/:taskId" element={<TaskDetailPage />} />
           </Route>
         </Route>
 

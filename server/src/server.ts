@@ -6,6 +6,7 @@ import { startAnalysisConsumer } from "./modules/analysis/analysis.consumer.ts";
 import { startIndexingConsumer } from "./modules/indexing/indexing.consumer.ts";
 import { startSyncConsumer } from "./modules/sync/sync.consumer.ts";
 import { startSyncScheduler } from "./modules/sync/sync.scheduler.ts";
+import { startTaskConsumer } from "./modules/tasks/task.consumer.ts";
 import { startWebhookConsumer } from "./modules/webhook/webhook.consumer.ts";
 
 app.listen(env.PORT, () => {
@@ -16,4 +17,5 @@ startSyncConsumer();
 startWebhookConsumer();
 startIndexingConsumer();
 startAnalysisConsumer();
+startTaskConsumer();
 startSyncScheduler();

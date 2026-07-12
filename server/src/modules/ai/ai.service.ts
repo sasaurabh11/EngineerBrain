@@ -2,19 +2,19 @@ import { NotFoundError } from "../../common/errors/AppError.ts";
 import { indexingService } from "../indexing/indexing.service.ts";
 import { organizationRepository } from "../organization/organization.repository.ts";
 import { repoRepository } from "../repo/repo.repository.ts";
+import { callAgentStep, callValidate, type ChatMessagePayload } from "./agents/agentClient.ts";
 import type { AiStreamEvent, ConversationDetailResponseDto, ConversationResponseDto } from "./ai.types.ts";
 import { extractCitations, type CitationCandidate } from "./citations.ts";
 import { conversationRepository } from "./conversation.repository.ts";
 import { buildContext } from "./contextBuilder.ts";
 import { NO_CONTEXT_FOUND_MESSAGE, hasNoContext } from "./guardrails.ts";
-import { geminiProvider } from "./llm/geminiProvider.ts";
-import type { LlmMessage, LlmPart } from "./llm/provider.ts";
-import { buildMessages, buildSystemInstruction } from "./promptBuilder.ts";
+import { buildMessages, buildRevisionPrompt, buildSynthesisPrompt, buildSystemInstruction } from "./promptBuilder.ts";
 import { toolRegistry } from "./tools/registry.ts";
 import type { ToolContext } from "./tools/tool.types.ts";
 
 const MAX_TOOL_ROUNDS = 8;
 const HISTORY_LIMIT = 15;
+const MAX_EVIDENCE_CHARS = 1000;
 
 function toConversationDto(convo: { id: string; title: string | null; repositoryId: string | null; createdAt: Date; updatedAt: Date; repository?: { name: string } | null }): ConversationResponseDto {
   return {
@@ -120,62 +120,44 @@ export const aiService = {
       .filter((m) => m.role === "USER" || m.role === "ASSISTANT")
       .map((m) => ({ role: m.role as "USER" | "ASSISTANT", content: m.content }));
 
-    const systemInstruction = buildSystemInstruction(
+    const systemContext = buildSystemInstruction(
       organization?.name ?? "this organization",
       repository ? { name: repository.name, description: repository.description, primaryLanguage: repository.primaryLanguage } : undefined,
     );
-    const messages: LlmMessage[] = buildMessages(context, history, question);
+    let messages: ChatMessagePayload[] = buildMessages(context, history, question);
 
     const toolCtx: ToolContext = { organizationId, userId, repositoryId: convo.repositoryId ?? undefined };
     const citationsByPath = new Map<string, CitationCandidate>();
+    const evidence: string[] = [];
     for (const chunk of context.chunks) {
       citationsByPath.set(chunk.filePath, { chunkId: chunk.chunkId, filePath: chunk.filePath, repositoryId: chunk.repositoryId });
+      evidence.push(`${chunk.filePath}: ${chunk.content.slice(0, MAX_EVIDENCE_CHARS)}`);
     }
 
     const pendingToolInvocations: { toolName: string; arguments: unknown; result: unknown; status: "SUCCESS" | "FAILED"; durationMs: number }[] = [];
-    let assembledText = "";
 
+    // --- Retriever: gather information by calling tools, round by round ---
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const toolCalls: { id: string; name: string; args: Record<string, unknown>; thoughtSignature?: string }[] = [];
-      let streamErrored = false;
-      // Reserve the last round as tool-free so the model is forced to synthesize
-      // a text answer from whatever it already gathered, instead of attempting
+      // Reserve the last round as tool-free so the model is forced to stop
+      // gathering and hand off to the Synthesizer, instead of attempting
       // another tool call and running out of rounds with nothing to show.
       const isFinalRound = round === MAX_TOOL_ROUNDS - 1;
-      const tools = isFinalRound ? [] : toolRegistry.schemas();
+      const tools = isFinalRound ? [] : toolRegistry.readOnlySchemas();
 
-      for await (const event of geminiProvider.streamChat({ systemInstruction, messages, tools, signal })) {
-        if (event.type === "text-delta") {
-          assembledText += event.text;
-          yield { type: "text-delta", text: event.text };
-        } else if (event.type === "tool-call") {
-          toolCalls.push(event);
-        } else if (event.type === "error") {
-          streamErrored = true;
-          yield { type: "error", message: event.message };
-        }
-      }
-
-      if (streamErrored) {
+      let step;
+      try {
+        step = await callAgentStep("retriever", messages, tools, systemContext, signal);
+      } catch (err) {
+        yield { type: "error", message: err instanceof Error ? err.message : "Retriever agent call failed" };
         break;
       }
 
-      if (toolCalls.length === 0) {
+      messages = [...messages, step.message];
+      if (step.done) {
         break;
       }
 
-      messages.push({
-        role: "model",
-        parts: toolCalls.map(
-          (call): LlmPart => ({
-            functionCall: { id: call.id, name: call.name, args: call.args },
-            thoughtSignature: call.thoughtSignature,
-          }),
-        ),
-      });
-
-      const responseParts: LlmPart[] = [];
-      for (const call of toolCalls) {
+      for (const call of step.message.tool_calls ?? []) {
         yield { type: "tool-call", name: call.name, args: call.args };
         const startedAt = Date.now();
         let result: unknown;
@@ -197,17 +179,35 @@ export const aiService = {
 
         yield { type: "tool-result", name: call.name, status };
         pendingToolInvocations.push({ toolName: call.name, arguments: call.args, result, status, durationMs: Date.now() - startedAt });
-        // Gemini's functionResponse.response must be a JSON object, not a bare
-        // array/primitive - several tools (e.g. semantic_search) return arrays directly.
-        const responsePayload =
-          result !== null && typeof result === "object" && !Array.isArray(result)
-            ? (result as Record<string, unknown>)
-            : { results: result };
-        responseParts.push({ functionResponse: { id: call.id, name: call.name, response: responsePayload } });
+        evidence.push(`${call.name}(${JSON.stringify(call.args)}) -> ${JSON.stringify(result).slice(0, MAX_EVIDENCE_CHARS)}`);
+        messages = [...messages, { role: "tool", content: JSON.stringify(result), tool_call_id: call.id, name: call.name }];
       }
-
-      messages.push({ role: "user", parts: responseParts });
     }
+
+    // --- Synthesizer: write the final answer from a fresh, clean prompt built
+    // from the gathered evidence - NOT by replaying the retriever's raw
+    // multi-round transcript, since Gemini's thinking models can hallucinate a
+    // tool call even with no tools bound once several tool rounds accumulate. ---
+    let assembledText = "";
+    try {
+      const synthesisMessages: ChatMessagePayload[] = [{ role: "user", content: buildSynthesisPrompt(question, evidence) }];
+      const synthesis = await callAgentStep("synthesizer", synthesisMessages, [], systemContext, signal);
+      assembledText = synthesis.message.content ?? "";
+
+      // --- Critic: one bounded grounding check + revision, not persisted ---
+      const verdict = await callValidate(assembledText, evidence, signal);
+      if (!verdict.passed) {
+        const revisionMessages: ChatMessagePayload[] = [
+          { role: "user", content: buildRevisionPrompt(question, evidence, assembledText, verdict.issues) },
+        ];
+        const revision = await callAgentStep("synthesizer", revisionMessages, [], systemContext, signal);
+        assembledText = revision.message.content ?? assembledText;
+      }
+    } catch (err) {
+      yield { type: "error", message: err instanceof Error ? err.message : "Synthesizer agent call failed" };
+    }
+
+    yield { type: "text-delta", text: assembledText };
 
     const assistantMessage = await conversationRepository.createMessage(conversationId, "ASSISTANT", assembledText);
     for (const invocation of pendingToolInvocations) {

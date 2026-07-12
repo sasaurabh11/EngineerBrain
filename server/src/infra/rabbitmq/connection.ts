@@ -8,6 +8,7 @@ export const QUEUES = {
   WEBHOOK_PROCESS: "webhook.process",
   REPOSITORY_INDEX: "repository.index",
   REPOSITORY_ANALYZE: "repository.analyze",
+  TASK_EXECUTE: "task.execute",
 } as const;
 
 const DEAD_LETTER_EXCHANGE = "dlx";

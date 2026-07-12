@@ -7,6 +7,7 @@ interface AiServiceRequestOptions {
   method?: "GET" | "POST" | "DELETE";
   body?: unknown;
   timeoutMs?: number;
+  signal?: AbortSignal;
 }
 
 export function isAiServiceConfigured(): boolean {
@@ -20,6 +21,8 @@ export async function callAiService<T>(path: string, options: AiServiceRequestOp
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  const onExternalAbort = () => controller.abort();
+  options.signal?.addEventListener("abort", onExternalAbort);
 
   try {
     const response = await fetch(`${env.AI_SERVICE_URL}${path}`, {
@@ -40,5 +43,6 @@ export async function callAiService<T>(path: string, options: AiServiceRequestOp
     return (await response.json()) as T;
   } finally {
     clearTimeout(timeout);
+    options.signal?.removeEventListener("abort", onExternalAbort);
   }
 }

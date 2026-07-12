@@ -153,6 +153,7 @@ model Organization {
   githubInstallation GitHubInstallation?
   repositories       Repository[]
   conversations      Conversation[]
+  tasks              Task[]
 
   @@map("organizations")
 }
@@ -257,6 +258,7 @@ model Repository {
   conversations   Conversation[]
   citations       Citation[]
   analyses        RepositoryAnalysis[]
+  tasks           Task[]
 
   @@unique([organizationId, githubRepoId])
   @@map("repositories")
@@ -571,18 +573,21 @@ model Message {
 }
 
 model ToolInvocation {
-  id         String               @id @default(uuid())
-  messageId  String
-  toolName   String
-  arguments  Json
-  result     Json?
-  status     ToolInvocationStatus
-  durationMs Int?
-  createdAt  DateTime             @default(now())
+  id               String               @id @default(uuid())
+  messageId        String?
+  agentExecutionId String?
+  toolName         String
+  arguments        Json
+  result           Json?
+  status           ToolInvocationStatus
+  durationMs       Int?
+  createdAt        DateTime             @default(now())
 
-  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  message        Message?        @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  agentExecution AgentExecution? @relation(fields: [agentExecutionId], references: [id], onDelete: Cascade)
 
   @@index([messageId])
+  @@index([agentExecutionId])
   @@map("tool_invocations")
 }
 
@@ -689,4 +694,129 @@ model Finding {
   @@index([analysisId, severity])
   @@index([filePath])
   @@map("findings")
+}
+
+// --- Phase 6: AI Engineering Agent Platform ---
+
+enum TaskStatus {
+  QUEUED
+  RUNNING
+  PENDING_APPROVAL
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+enum MemoryScope {
+  CONVERSATION
+  TASK
+  EXECUTION
+}
+
+model Task {
+  id             String     @id @default(uuid())
+  organizationId String
+  repositoryId   String?
+  createdById    String
+  workflowKey    String?
+  goal           String
+  status         TaskStatus @default(QUEUED)
+  progress       Int        @default(0)
+  resultSummary  String?
+  errorMessage   String?
+  retryCount     Int        @default(0)
+
+  // The resolved step graph this task is executing - stored once (either from
+  // a code-defined workflow or the Planner agent) so a restart/retry resumes
+  // the same plan instead of the Planner potentially generating a different one.
+  planJson Json?
+
+  // Write-tool approval gate: which step is waiting, who approved it, when.
+  pendingStepId String?
+  approvedById  String?
+  approvedAt    DateTime?
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  repository   Repository?      @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
+  executions   AgentExecution[]
+
+  @@index([organizationId, status])
+  @@index([repositoryId, startedAt])
+  @@map("tasks")
+}
+
+model AgentExecution {
+  id                String           @id @default(uuid())
+  taskId            String
+  agentKey          String
+  stepIndex         Int
+  parentExecutionId String?
+  status            ExecutionStatus  @default(PENDING)
+  input             Json
+  output            Json?
+  tokensUsed        Int?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime         @default(now())
+
+  task            Task               @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  logs            ExecutionLog[]
+  validations     ValidationResult[]
+  toolInvocations ToolInvocation[]
+
+  @@index([taskId, stepIndex])
+  @@map("agent_executions")
+}
+
+model ExecutionLog {
+  id               String   @id @default(uuid())
+  agentExecutionId String
+  level            String
+  message          String
+  metadata         Json?
+  createdAt        DateTime @default(now())
+
+  agentExecution AgentExecution @relation(fields: [agentExecutionId], references: [id], onDelete: Cascade)
+
+  @@index([agentExecutionId, createdAt])
+  @@map("execution_logs")
+}
+
+model ValidationResult {
+  id               String   @id @default(uuid())
+  agentExecutionId String
+  passed           Boolean
+  issues           Json?
+  confidence       Int?
+  createdAt        DateTime @default(now())
+
+  agentExecution AgentExecution @relation(fields: [agentExecutionId], references: [id], onDelete: Cascade)
+
+  @@index([agentExecutionId])
+  @@map("validation_results")
+}
+
+model Memory {
+  id        String      @id @default(uuid())
+  scope     MemoryScope
+  scopeId   String
+  key       String
+  value     Json
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@unique([scope, scopeId, key])
+  @@map("memories")
 }
