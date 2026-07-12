@@ -34,6 +34,10 @@ class RawFinding:
     end_line: int | None = None
     symbol_name: str | None = None
     suggested_fix: str | None = None
+    # Optional per-finding override; if unset, the pipeline derives a reasonable
+    # evidence string from metadata so individual analyzers aren't forced to
+    # duplicate that formatting logic.
+    evidence: str | None = None
     metadata: dict = field(default_factory=dict)
 
 

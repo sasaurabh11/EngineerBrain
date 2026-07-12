@@ -606,6 +606,8 @@ enum AnalysisStatus {
   RUNNING
   COMPLETED
   FAILED
+  RETRY
+  CANCELLED
 }
 
 enum FindingCategory {
@@ -638,6 +640,14 @@ model RepositoryAnalysis {
   securityScore        Int?
   performanceScore     Int?
   maintainabilityScore Int?
+  scalabilityScore     Int?
+  modularityScore      Int?
+  layeringScore        Int?
+  documentationScore   Int?
+  complexityScore      Int?
+  technicalDebtScore   Int?
+  architectureSummary  String?
+  retryCount           Int            @default(0)
   startedAt            DateTime       @default(now())
   completedAt          DateTime?
   errorMessage         String?
@@ -650,25 +660,33 @@ model RepositoryAnalysis {
 }
 
 model Finding {
-  id           String          @id @default(uuid())
-  analysisId   String
-  category     FindingCategory
-  type         String
-  severity     FindingSeverity
-  title        String
-  explanation  String
-  suggestedFix String?
-  confidence   Int
-  filePath     String?
-  startLine    Int?
-  endLine      Int?
-  symbolId     String?
-  metadata     Json?
-  createdAt    DateTime        @default(now())
+  id               String           @id @default(uuid())
+  analysisId       String
+  category         FindingCategory
+  type             String
+  severity         FindingSeverity
+  priority         FindingSeverity?
+  title            String
+  explanation      String
+  evidence         String?
+  suggestedFix     String?
+  estimatedImpact  String?
+  confidence       Int
+  filePath         String?
+  startLine        Int?
+  endLine          Int?
+  symbolId         String?
+  relatedFiles     String[]         @default([])
+  relatedClasses   String[]         @default([])
+  relatedFunctions String[]         @default([])
+  metadata         Json?
+  createdAt        DateTime         @default(now())
 
   analysis RepositoryAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
   symbol   CodeSymbol?        @relation(fields: [symbolId], references: [id], onDelete: SetNull)
 
   @@index([analysisId, category])
+  @@index([analysisId, severity])
+  @@index([filePath])
   @@map("findings")
 }

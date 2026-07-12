@@ -11,7 +11,10 @@ export function startAnalysisConsumer(): void {
       await analysisService.performAnalysis(payload.repositoryId, payload.analysisId);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown analysis error";
-      await analysisRepository.markFailed(payload.analysisId, message);
+      const current = await analysisRepository.findById(payload.analysisId);
+      if (current?.status !== "CANCELLED") {
+        await analysisRepository.markFailed(payload.analysisId, message);
+      }
       logger.error({ err, repositoryId: payload.repositoryId }, "Repository analysis failed");
       throw err;
     }

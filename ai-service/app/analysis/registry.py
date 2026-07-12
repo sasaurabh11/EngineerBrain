@@ -2,9 +2,24 @@ import inspect
 import logging
 
 from app.analysis.analyzer import AnalysisContext, RawFinding
-from app.analysis.dependency import CircularDependencyAnalyzer, DependencyDepthAnalyzer, ModuleCouplingAnalyzer, UnsafeDependencyAnalyzer
+from app.analysis.dependency import (
+    CircularDependencyAnalyzer,
+    DependencyDepthAnalyzer,
+    LayerViolationAnalyzer,
+    ModuleCouplingAnalyzer,
+    UnsafeDependencyAnalyzer,
+)
 from app.analysis.patterns import DesignPatternDetector
-from app.analysis.performance import BlockingOperationAnalyzer, ExpensiveLoopAnalyzer, NPlusOneAnalyzer
+from app.analysis.performance import (
+    BlockingOperationAnalyzer,
+    ExpensiveLoopAnalyzer,
+    HeavyDatabaseCallAnalyzer,
+    InefficientCollectionAnalyzer,
+    LargeObjectAnalyzer,
+    MissingCachingAnalyzer,
+    NPlusOneAnalyzer,
+    UnnecessaryObjectCreationAnalyzer,
+)
 from app.analysis.quality import (
     ClassSizeAnalyzer,
     ComplexityAnalyzer,
@@ -13,15 +28,27 @@ from app.analysis.quality import (
     FunctionSizeAnalyzer,
     NestingDepthAnalyzer,
     UnusedImportAnalyzer,
+    UnusedVariableAnalyzer,
 )
 from app.analysis.security import (
+    CsrfAnalyzer,
     HardcodedSecretAnalyzer,
     MissingAuthorizationAnalyzer,
     SensitiveDataLoggingAnalyzer,
     SqlInjectionAnalyzer,
+    UnsafeConfigurationAnalyzer,
+    WeakJwtAnalyzer,
+    WeakPasswordHandlingAnalyzer,
     WeakTlsAnalyzer,
+    XssAnalyzer,
 )
-from app.analysis.solid import DipCandidateAnalyzer, SrpCandidateAnalyzer
+from app.analysis.solid import (
+    DipCandidateAnalyzer,
+    IspCandidateAnalyzer,
+    LspCandidateAnalyzer,
+    OcpCandidateAnalyzer,
+    SrpCandidateAnalyzer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +60,7 @@ _ANALYZERS = [
     FileSizeAnalyzer(),
     DuplicateLogicAnalyzer(),
     UnusedImportAnalyzer(),
+    UnusedVariableAnalyzer(),
     HardcodedSecretAnalyzer(),
     SqlInjectionAnalyzer(),
     WeakTlsAnalyzer(),
@@ -47,7 +75,21 @@ _ANALYZERS = [
     UnsafeDependencyAnalyzer(),
     SrpCandidateAnalyzer(),
     DipCandidateAnalyzer(),
+    OcpCandidateAnalyzer(),
+    LspCandidateAnalyzer(),
+    IspCandidateAnalyzer(),
     DesignPatternDetector(),
+    WeakJwtAnalyzer(),
+    XssAnalyzer(),
+    UnsafeConfigurationAnalyzer(),
+    WeakPasswordHandlingAnalyzer(),
+    CsrfAnalyzer(),
+    LargeObjectAnalyzer(),
+    InefficientCollectionAnalyzer(),
+    UnnecessaryObjectCreationAnalyzer(),
+    MissingCachingAnalyzer(),
+    HeavyDatabaseCallAnalyzer(),
+    LayerViolationAnalyzer(),
 ]
 
 

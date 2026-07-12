@@ -253,6 +253,82 @@ class DuplicateLogicAnalyzer:
         return findings
 
 
+_IGNORED_VARIABLE_NAMES = frozenset({"_", "self", "this", "cls"})
+
+
+def _assignment_targets(function_node, language: str, source: bytes) -> list[tuple[str, object]]:
+    """Simple `name = expr` (Python) / `let|const|var name = expr` (JS/TS)
+    local-variable declarations inside a function - destructuring, tuple
+    unpacking, and attribute targets are deliberately excluded since "is this
+    used elsewhere" isn't a meaningful question for those."""
+    target_node_type = "assignment" if language == "python" else "variable_declarator"
+    field_name = "left" if language == "python" else "name"
+
+    targets: list[tuple[str, object]] = []
+
+    def walk(node) -> None:
+        if node.type == target_node_type:
+            name_node = node.child_by_field_name(field_name)
+            if name_node is not None and name_node.type == "identifier":
+                targets.append((ast_utils.node_text(name_node, source), name_node))
+        for child in node.children:
+            walk(child)
+
+    walk(function_node)
+    return targets
+
+
+class UnusedVariableAnalyzer:
+    """Structural, not a proxy: a local variable assigned exactly once and
+    never read again anywhere else in its own function is unambiguously dead,
+    regardless of language conventions - unlike unused-import detection this
+    needs no cross-file call graph, since the whole check stays within one
+    function's own AST."""
+
+    name = "unused_variables"
+
+    def analyze(self, context: AnalysisContext) -> list[RawFinding]:
+        findings: list[RawFinding] = []
+        for file in context.files:
+            if file.language not in ("python", "javascript", "typescript"):
+                continue
+            profile = ast_utils.get_profile(file.language)
+            if profile is None:
+                continue
+            root = ast_utils.parse_raw_tree(file.language, file.source)
+            if root is None:
+                continue
+
+            for func_node in ast_utils.find_function_nodes(root, profile):
+                func_name = _function_name(func_node, file.source)
+                body_text = ast_utils.node_text(func_node, file.source)
+                for var_name, name_node in _assignment_targets(func_node, file.language, file.source):
+                    if var_name in _IGNORED_VARIABLE_NAMES or var_name.startswith("_"):
+                        continue
+                    total_occurrences = len(re.findall(rf"\b{re.escape(var_name)}\b", body_text))
+                    if total_occurrences > 1:
+                        continue
+                    findings.append(
+                        RawFinding(
+                            category="QUALITY",
+                            type="UNUSED_VARIABLE",
+                            severity="LOW",
+                            title=f"Unused variable `{var_name}` in `{func_name}`",
+                            explanation=(
+                                f"`{var_name}` is assigned in `{func_name}` but never read afterwards in the same function."
+                            ),
+                            suggested_fix="Remove the assignment, or prefix the name with an underscore if it's intentionally unused.",
+                            confidence=75,
+                            file_path=file.path,
+                            start_line=name_node.start_point[0] + 1,
+                            end_line=name_node.end_point[0] + 1,
+                            symbol_name=func_name,
+                            metadata={"variable_name": var_name},
+                        )
+                    )
+        return findings
+
+
 class UnusedImportAnalyzer:
     """Proxy for dead code: a real unused-function detector needs a resolved
     call graph (GraphEdgeType.CALLS isn't populated yet); unused imports are a

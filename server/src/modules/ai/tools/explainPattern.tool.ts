@@ -22,7 +22,7 @@ export const explainPatternTool: AiTool<ExplainPatternArgs> = {
       return { found: false, message: "No completed analysis found for this repository." };
     }
 
-    const findings = await analysisRepository.listFindings(analysis.id, "PATTERN");
+    const findings = await analysisRepository.listAllFindings(analysis.id, "PATTERN");
     const matches = findings.filter((f) => f.type.toLowerCase() === args.pattern_name.toLowerCase());
 
     return {

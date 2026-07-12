@@ -30,7 +30,7 @@ export const explainFindingTool: AiTool<ExplainFindingArgs> = {
       if (!latest) {
         return { found: false, message: "No completed analysis found for this repository." };
       }
-      const candidates = await analysisRepository.listFindings(latest.id);
+      const candidates = await analysisRepository.listAllFindings(latest.id);
       finding = candidates.find((f) => (!args.file_path || f.filePath === args.file_path) && (!args.type || f.type === args.type)) ?? null;
     }
 

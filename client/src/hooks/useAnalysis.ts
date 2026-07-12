@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { analysisApi } from "../api/analysis.api";
-import type { FindingCategory, FindingSeverity } from "../types/analysis.types";
+import type { FindingsFilters } from "../types/analysis.types";
 
 export function useAnalysisStatus(orgSlug: string | undefined, repositoryId: string | undefined) {
   return useQuery({
@@ -26,7 +26,7 @@ export function useFindings(
   orgSlug: string | undefined,
   repositoryId: string | undefined,
   enabled: boolean,
-  filters: { category?: FindingCategory; severity?: FindingSeverity } = {},
+  filters: FindingsFilters = {},
 ) {
   return useQuery({
     queryKey: ["analysis", "findings", orgSlug, repositoryId, filters],
@@ -35,10 +35,34 @@ export function useFindings(
   });
 }
 
+export function useAnalysisTrend(orgSlug: string | undefined, repositoryId: string | undefined, enabled: boolean, limit = 20) {
+  return useQuery({
+    queryKey: ["analysis", "trend", orgSlug, repositoryId, limit],
+    queryFn: () => analysisApi.trend(orgSlug!, repositoryId!, limit),
+    enabled: Boolean(orgSlug) && Boolean(repositoryId) && enabled,
+  });
+}
+
 export function useTriggerAnalysis(orgSlug: string, repositoryId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => analysisApi.trigger(orgSlug, repositoryId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["analysis", "status", orgSlug, repositoryId] }),
+  });
+}
+
+export function useRetryAnalysis(orgSlug: string, repositoryId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (analysisId: string) => analysisApi.retry(orgSlug, repositoryId, analysisId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["analysis", "status", orgSlug, repositoryId] }),
+  });
+}
+
+export function useCancelAnalysis(orgSlug: string, repositoryId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (analysisId: string) => analysisApi.cancel(orgSlug, repositoryId, analysisId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["analysis", "status", orgSlug, repositoryId] }),
   });
 }

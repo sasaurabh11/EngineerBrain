@@ -20,14 +20,20 @@ class FindingPayload(BaseModel):
     category: str
     type: str
     severity: str
+    priority: str | None = None
     title: str
     explanation: str
+    evidence: str | None = None
     suggested_fix: str | None = None
+    estimated_impact: str | None = None
     confidence: int
     file_path: str | None = None
     start_line: int | None = None
     end_line: int | None = None
     symbol_name: str | None = None
+    related_files: list[str] = []
+    related_classes: list[str] = []
+    related_functions: list[str] = []
     metadata: dict = {}
 
 
@@ -37,4 +43,11 @@ class AnalysisResponse(BaseModel):
     security_score: int
     performance_score: int
     maintainability_score: int
+    scalability_score: int
+    modularity_score: int
+    layering_score: int
+    documentation_score: int
+    complexity_score: int
+    technical_debt_score: int
+    architecture_summary: str
     findings: list[FindingPayload]

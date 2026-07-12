@@ -254,3 +254,50 @@ def structural_fingerprint(function_node: Node) -> str:
 
     walk(function_node)
     return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
+
+
+_BRANCH_CHAIN_NODE_TYPES = frozenset({"elif_clause", "switch_case", "case_clause", "switch_label"})
+
+
+def count_branch_arms(function_node: Node) -> int:
+    """Counts elif/case/switch-label arms anywhere under a function - a long
+    chain dispatching on a discriminator is the structural OCP smell (adding a
+    new case means modifying this function instead of extending via
+    polymorphism), regardless of language."""
+    count = 0
+
+    def walk(node: Node) -> None:
+        nonlocal count
+        if node.type in _BRANCH_CHAIN_NODE_TYPES:
+            count += 1
+        for child in node.children:
+            walk(child)
+
+    walk(function_node)
+    return count
+
+
+_LITERAL_NODE_TYPES = frozenset({"dictionary", "list", "object", "array"})
+
+
+def find_literals(node: Node) -> list[Node]:
+    """All object/dict/array literal nodes anywhere under `node`."""
+    found: list[Node] = []
+
+    def walk(n: Node) -> None:
+        if n.type in _LITERAL_NODE_TYPES:
+            found.append(n)
+        for child in n.children:
+            walk(child)
+
+    walk(node)
+    return found
+
+
+def literal_element_count(literal_node: Node) -> int:
+    """Immediate elements in an object/dict/array literal (not nested ones) -
+    `pair` nodes for dict/object literals, any other named child for arrays."""
+    pairs = [c for c in literal_node.children if c.type == "pair"]
+    if pairs:
+        return len(pairs)
+    return sum(1 for c in literal_node.children if c.is_named)

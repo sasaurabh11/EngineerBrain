@@ -21,7 +21,7 @@ export const healthReportTool: AiTool<HealthReportArgs> = {
       return { found: false, message: "No completed analysis found for this repository yet." };
     }
 
-    const findings = await analysisRepository.listFindings(analysis.id);
+    const findings = await analysisRepository.listAllFindings(analysis.id);
     const topFindings = [...findings]
       .sort((a, b) => (SEVERITY_RANK[b.severity] ?? 0) - (SEVERITY_RANK[a.severity] ?? 0))
       .slice(0, MAX_FINDINGS)
@@ -42,6 +42,13 @@ export const healthReportTool: AiTool<HealthReportArgs> = {
       securityScore: analysis.securityScore,
       performanceScore: analysis.performanceScore,
       maintainabilityScore: analysis.maintainabilityScore,
+      scalabilityScore: analysis.scalabilityScore,
+      modularityScore: analysis.modularityScore,
+      layeringScore: analysis.layeringScore,
+      documentationScore: analysis.documentationScore,
+      complexityScore: analysis.complexityScore,
+      technicalDebtScore: analysis.technicalDebtScore,
+      architectureSummary: analysis.architectureSummary,
       totalFindings: findings.length,
       topFindings,
     };

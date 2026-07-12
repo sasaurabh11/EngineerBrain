@@ -13,6 +13,43 @@ HIGH_COUPLING_THRESHOLD = 10
 DEEP_DEPENDENCY_THRESHOLD = 8
 OSV_API_URL = "https://api.osv.dev/v1/query"
 
+# A file's layer is the highest-priority folder segment or filename suffix it
+# matches (checked in this order: folder segments first, then filename
+# patterns). The expected flow is low rank -> high rank (e.g. a controller may
+# depend on a service; a repository/infra file depending back on a controller
+# is backwards). This is a generic, naming-convention-based heuristic, not a
+# project-specific one - repos that don't follow any of these conventions
+# simply won't have their files ranked, and are silently excluded from this
+# check rather than penalized for an absence of layering.
+LAYER_RANK: dict[str, int] = {
+    "routes": 1,
+    "route": 1,
+    "controllers": 1,
+    "controller": 1,
+    "handlers": 1,
+    "handler": 1,
+    "api": 1,
+    "services": 2,
+    "service": 2,
+    "usecases": 2,
+    "usecase": 2,
+    "domain": 2,
+    "repositories": 3,
+    "repository": 3,
+    "repo": 3,
+    "dao": 3,
+    "models": 3,
+    "model": 3,
+    "entities": 3,
+    "entity": 3,
+    "infra": 4,
+    "infrastructure": 4,
+    "db": 4,
+    "database": 4,
+    "storage": 4,
+}
+LAYER_NAMES = {1: "presentation (routes/controllers)", 2: "application (services)", 3: "domain (repositories/models)", 4: "infrastructure"}
+
 
 def _build_file_graph(context: AnalysisContext) -> dict[str, set[str]]:
     all_paths = {f.path for f in context.files}
@@ -275,4 +312,65 @@ class UnsafeDependencyAnalyzer:
                     metadata={"package": name, "version": version, "vuln_ids": [v.get("id") for v in vulns]},
                 )
             )
+        return findings
+
+
+def _file_layer_rank(path: str) -> int | None:
+    segments = path.lower().replace("\\", "/").split("/")
+    for segment in segments[:-1]:
+        if segment in LAYER_RANK:
+            return LAYER_RANK[segment]
+
+    filename = segments[-1]
+    stem = filename.rsplit(".", 1)[0] if "." in filename else filename
+    for suffix, rank in LAYER_RANK.items():
+        if stem == suffix or stem.endswith(f"_{suffix}") or stem.endswith(f".{suffix}"):
+            return rank
+    return None
+
+
+class LayerViolationAnalyzer:
+    """Generic layer-direction check (also covers "dependency direction" as
+    the same mechanism, not a separate one): if a file's naming convention
+    places it in a "lower" layer (e.g. repository/infra) but it imports a file
+    in a "higher" layer (e.g. a controller), the dependency points backwards
+    against the conventional flow (routes/controllers -> services ->
+    repositories -> infrastructure). Files that don't match any recognized
+    layer convention are excluded rather than penalized for it."""
+
+    name = "layer_violations"
+
+    def analyze(self, context: AnalysisContext) -> list[RawFinding]:
+        graph = _build_file_graph(context)
+        findings: list[RawFinding] = []
+
+        for source_path, targets in graph.items():
+            source_rank = _file_layer_rank(source_path)
+            if source_rank is None:
+                continue
+            for target_path in targets:
+                target_rank = _file_layer_rank(target_path)
+                if target_rank is None or target_rank >= source_rank:
+                    continue
+                source_layer = LAYER_NAMES[source_rank]
+                target_layer = LAYER_NAMES[target_rank]
+                findings.append(
+                    RawFinding(
+                        category="DEPENDENCY",
+                        type="LAYER_VIOLATION",
+                        severity="MEDIUM",
+                        title=f"{source_path} ({source_layer}) depends on {target_path} ({target_layer})",
+                        explanation=(
+                            f"{source_path} is in the {source_layer} layer but imports {target_path}, which is in "
+                            f"the {target_layer} layer - a layer meant to sit closer to the API surface. The "
+                            "conventional flow is routes/controllers -> services -> repositories -> infrastructure, "
+                            "each layer depending only on layers at or below its own level."
+                        ),
+                        evidence=f"{source_path} -> {target_path}",
+                        suggested_fix="Invert this dependency (e.g. via an interface the lower layer defines and the higher layer implements), or move the shared logic to a layer both can depend on.",
+                        confidence=50,
+                        file_path=source_path,
+                        metadata={"source_layer": source_layer, "target_layer": target_layer, "target_path": target_path},
+                    )
+                )
         return findings

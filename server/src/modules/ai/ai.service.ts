@@ -14,7 +14,7 @@ import { toolRegistry } from "./tools/registry.ts";
 import type { ToolContext } from "./tools/tool.types.ts";
 
 const MAX_TOOL_ROUNDS = 8;
-const HISTORY_LIMIT = 20;
+const HISTORY_LIMIT = 15;
 
 function toConversationDto(convo: { id: string; title: string | null; repositoryId: string | null; createdAt: Date; updatedAt: Date; repository?: { name: string } | null }): ConversationResponseDto {
   return {

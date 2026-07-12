@@ -2,6 +2,14 @@ from pathlib import Path
 
 from app.analysis.ai_confirmation import confirm_candidates
 from app.analysis.analyzer import AnalysisContext, AnalyzedFile
+from app.analysis.architecture_summary import generate_architecture_summary
+from app.analysis.enrichment import (
+    compute_estimated_impact,
+    compute_evidence,
+    compute_priority,
+    compute_related_files,
+    compute_related_symbols,
+)
 from app.analysis.registry import run_all
 from app.analysis.schemas import AnalysisRequest, AnalysisResponse, FindingPayload
 from app.analysis.scoring import compute_scores
@@ -10,6 +18,27 @@ from app.parsers.registry import get_parser_for_file
 from app.repository import clone_manager
 
 _MANIFEST_FILENAMES = ("package.json", "requirements.txt", "pom.xml")
+
+# Lightweight keyword sniff over already-read manifest text, purely to give the
+# architecture summary prompt a "what kind of system is this" hint - not a
+# first-class framework-detection feature.
+_FRAMEWORK_KEYWORDS = (
+    "react",
+    "next",
+    "express",
+    "nestjs",
+    "vue",
+    "angular",
+    "django",
+    "flask",
+    "fastapi",
+    "spring",
+)
+
+
+def _detect_frameworks(manifests: dict[str, str]) -> list[str]:
+    combined = " ".join(manifests.values()).lower()
+    return [keyword for keyword in _FRAMEWORK_KEYWORDS if keyword in combined]
 
 
 def _build_context(repository_id: str, repo_path: Path) -> AnalysisContext:
@@ -42,9 +71,13 @@ async def run_analysis(request: AnalysisRequest) -> AnalysisResponse:
     findings = await confirm_candidates(findings, context)
 
     scores = compute_scores(context, findings)
+    detected_frameworks = _detect_frameworks(context.dependency_manifests)
+    architecture_summary = await generate_architecture_summary(context, findings, scores, detected_frameworks)
 
-    return AnalysisResponse(
-        findings=[
+    findings_payload: list[FindingPayload] = []
+    for f in findings:
+        related_classes, related_functions = compute_related_symbols(f)
+        findings_payload.append(
             FindingPayload(
                 category=f.category,
                 type=f.type,
@@ -58,8 +91,13 @@ async def run_analysis(request: AnalysisRequest) -> AnalysisResponse:
                 end_line=f.end_line,
                 symbol_name=f.symbol_name,
                 metadata=f.metadata,
+                priority=compute_priority(f),
+                evidence=compute_evidence(f),
+                estimated_impact=compute_estimated_impact(f),
+                related_files=compute_related_files(f),
+                related_classes=related_classes,
+                related_functions=related_functions,
             )
-            for f in findings
-        ],
-        **scores,
-    )
+        )
+
+    return AnalysisResponse(findings=findings_payload, architecture_summary=architecture_summary, **scores)
