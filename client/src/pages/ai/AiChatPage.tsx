@@ -189,7 +189,7 @@ export function AiChatPage() {
   const { orgSlug = "", conversationId } = useParams();
 
   return (
-    <div className="-mx-4 -my-8 flex h-[calc(100vh-3.5rem)]">
+    <div className="-m-4 flex h-[calc(100vh-3.25rem)] md:-m-6">
       <ConversationSidebar orgSlug={orgSlug} activeId={conversationId} />
       {conversationId ? (
         <ActiveConversationPanel orgSlug={orgSlug} conversationId={conversationId} />

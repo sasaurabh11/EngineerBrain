@@ -1,84 +1,92 @@
 import { UserButton } from "@clerk/clerk-react";
-import { Link, NavLink, Outlet, useNavigate, useParams } from "react-router-dom";
+import { Menu, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, Outlet, useParams } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Breadcrumbs } from "../components/layout/breadcrumbs";
+import { CommandPalette } from "../components/layout/command-palette";
+import { OrgSwitcher } from "../components/layout/org-switcher";
+import { Sidebar, useSidebarCollapsed } from "../components/layout/sidebar";
+import { SidebarNav } from "../components/layout/sidebar-nav";
+import { ThemeToggle } from "../components/theme-toggle";
 import { useMyInvitations } from "../hooks/useInvitations";
-import { useOrganizations } from "../hooks/useOrganizations";
-
-const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  isActive ? "font-medium text-gray-900" : "text-gray-500 hover:text-gray-900";
 
 export function AppLayout() {
   const { orgSlug } = useParams();
-  const navigate = useNavigate();
-  const { data: organizations } = useOrganizations();
   const { data: invitations } = useMyInvitations();
+  const [collapsed, setCollapsed] = useSidebarCollapsed();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "k" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setCommandOpen((v) => !v);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  if (!orgSlug) {
+    return <Outlet />;
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-          <div className="flex items-center gap-6">
-            <Link to="/organizations" className="font-semibold text-gray-900">
-              EngineerBrain
-            </Link>
+    <div className="flex h-screen overflow-hidden bg-background">
+      <Sidebar orgSlug={orgSlug} collapsed={collapsed} onToggleCollapsed={() => setCollapsed((v) => !v)} />
 
-            {orgSlug && organizations && organizations.length > 0 && (
-              <select
-                value={orgSlug}
-                onChange={(event) => navigate(`/app/${event.target.value}/dashboard`)}
-                className="rounded border border-gray-300 px-2 py-1 text-sm text-gray-700"
-              >
-                {organizations.map((org) => (
-                  <option key={org.slug} value={org.slug}>
-                    {org.name}
-                  </option>
-                ))}
-              </select>
-            )}
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent side="left" className="w-64 p-0">
+          <SheetHeader className="p-2">
+            <SheetTitle className="sr-only">Navigation</SheetTitle>
+            <OrgSwitcher orgSlug={orgSlug} />
+          </SheetHeader>
+          <SidebarNav orgSlug={orgSlug} onNavigate={() => setMobileNavOpen(false)} />
+        </SheetContent>
+      </Sheet>
 
-            {orgSlug && (
-              <nav className="flex gap-4 text-sm">
-                <NavLink to={`/app/${orgSlug}/dashboard`} className={navLinkClass}>
-                  Dashboard
-                </NavLink>
-                <NavLink to={`/app/${orgSlug}/repositories`} className={navLinkClass}>
-                  Repositories
-                </NavLink>
-                <NavLink to={`/app/${orgSlug}/ai`} className={navLinkClass}>
-                  AI Chat
-                </NavLink>
-                <NavLink to={`/app/${orgSlug}/tasks`} className={navLinkClass}>
-                  Agent Tasks
-                </NavLink>
-                <NavLink to={`/app/${orgSlug}/members`} className={navLinkClass}>
-                  Members
-                </NavLink>
-                <NavLink to={`/app/${orgSlug}/settings`} className={navLinkClass}>
-                  Settings
-                </NavLink>
-              </nav>
-            )}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-13 shrink-0 items-center justify-between gap-3 border-b border-border px-3 md:px-5">
+          <div className="flex min-w-0 items-center gap-2">
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation">
+              <Menu className="size-4" />
+            </Button>
+            <Breadcrumbs orgSlug={orgSlug} />
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex shrink-0 items-center gap-2">
+            <Button variant="outline" size="sm" className="hidden gap-2 text-muted-foreground sm:flex" onClick={() => setCommandOpen(true)}>
+              <Search className="size-3.5" />
+              Search
+              <kbd className="ml-1 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
+            </Button>
             {invitations && invitations.length > 0 && (
-              <Link
-                to="/organizations"
-                className="rounded-full bg-blue-600 px-2.5 py-0.5 text-xs font-medium text-white hover:bg-blue-700"
-              >
-                {invitations.length} invitation{invitations.length > 1 ? "s" : ""}
+              <Link to="/organizations">
+                <Badge variant="destructive" className="cursor-pointer">
+                  {invitations.length} invitation{invitations.length > 1 ? "s" : ""}
+                </Badge>
               </Link>
             )}
-            <Link to="/profile" className="text-sm text-gray-500 hover:text-gray-900">
-              Profile
+            <ThemeToggle />
+            <Link to="/profile">
+              <Button variant="ghost" size="sm">
+                Profile
+              </Button>
             </Link>
             <UserButton />
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-8">
-        <Outlet />
-      </main>
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+          <Outlet />
+        </main>
+      </div>
+
+      <CommandPalette orgSlug={orgSlug} open={commandOpen} onOpenChange={setCommandOpen} />
     </div>
   );
 }

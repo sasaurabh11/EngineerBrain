@@ -19,4 +19,13 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // shadcn/ui components are vendored (regenerated via `shadcn add --overwrite`,
+    // not hand-authored) and routinely export a cva() variants function
+    // alongside the component - the standard, accepted shadcn+Vite pattern.
+    files: ['src/components/ui/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])
