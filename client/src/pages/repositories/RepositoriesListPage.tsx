@@ -1,5 +1,16 @@
+import { ExternalLink, FolderGit2, GitBranch, Loader2, RefreshCw, Search, Star, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { useGitHubStatus } from "../../hooks/useGithub";
 import { useOrganization } from "../../hooks/useOrganizations";
 import {
@@ -9,14 +20,14 @@ import {
   useRepositories,
   useSyncRepository,
 } from "../../hooks/useRepositories";
-import type { ListRepositoriesFilters } from "../../types/repository.types";
+import type { ListRepositoriesFilters, SyncStatus } from "../../types/repository.types";
 import { getManageGitHubInstallationUrl } from "../../utils/github";
 
-const SYNC_STATUS_STYLES: Record<string, string> = {
-  PENDING: "bg-gray-100 text-gray-600",
-  SYNCING: "bg-blue-100 text-blue-700",
-  SYNCED: "bg-green-100 text-green-700",
-  FAILED: "bg-red-100 text-red-700",
+const SYNC_STATUS_TONE: Record<SyncStatus, StatusTone> = {
+  PENDING: "neutral",
+  SYNCING: "info",
+  SYNCED: "success",
+  FAILED: "danger",
 };
 
 export function RepositoriesListPage() {
@@ -27,8 +38,7 @@ export function RepositoriesListPage() {
 
   const [filters, setFilters] = useState<ListRepositoriesFilters>({});
   const [searchInput, setSearchInput] = useState("");
-  const [languageInput, setLanguageInput] = useState("");
-  const { data: repositories, isLoading } = useRepositories(orgSlug, filters);
+  const { data: repositories, isLoading, isError, refetch } = useRepositories(orgSlug, filters);
 
   const [isImporting, setIsImporting] = useState(false);
   const { data: availableRepos, isLoading: isLoadingAvailable } = useAvailableRepositories(orgSlug, isImporting);
@@ -42,7 +52,7 @@ export function RepositoriesListPage() {
 
   function handleFilterSubmit(event: FormEvent) {
     event.preventDefault();
-    setFilters((prev) => ({ ...prev, search: searchInput || undefined, language: languageInput || undefined }));
+    setFilters((prev) => ({ ...prev, search: searchInput || undefined }));
   }
 
   function toggleSelected(githubRepoId: string) {
@@ -84,168 +94,213 @@ export function RepositoriesListPage() {
 
   if (!githubStatus?.connected) {
     return (
-      <div className="rounded border border-gray-200 bg-white p-6 text-center">
-        <p className="mb-3 text-sm text-gray-600">Connect GitHub to import and sync repositories.</p>
-        <Link to={`/app/${orgSlug}/settings`} className="text-sm font-medium text-gray-900 underline">
-          Go to settings
-        </Link>
-      </div>
+      <EmptyState
+        icon={GitBranch}
+        title="Connect GitHub"
+        description="Connect your GitHub account to import and sync repositories."
+        action={
+          <Button asChild size="sm">
+            <a href={`/app/${orgSlug}/settings`}>Go to settings</a>
+          </Button>
+        }
+      />
     );
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Repositories</h1>
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">Repositories</h1>
+          <p className="text-sm text-muted-foreground">Repositories imported and analyzed in this organization.</p>
+        </div>
         {canManage && (
-          <button
-            type="button"
-            onClick={() => setIsImporting((prev) => !prev)}
-            className="rounded bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700"
-          >
+          <Button type="button" onClick={() => setIsImporting((prev) => !prev)} variant={isImporting ? "outline" : "default"}>
             {isImporting ? "Cancel" : "Import repositories"}
-          </button>
+          </Button>
         )}
       </div>
 
-      {actionError && <p className="text-sm text-red-600">{actionError}</p>}
+      {actionError && <p className="text-sm text-destructive">{actionError}</p>}
 
       {isImporting && (
-        <section className="rounded border border-gray-200 bg-white p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-900">Available repositories</h2>
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground">Available repositories</h2>
             {githubStatus && getManageGitHubInstallationUrl(githubStatus) && (
               <a
                 href={getManageGitHubInstallationUrl(githubStatus)!}
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs font-medium text-gray-500 hover:text-gray-900"
+                className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
               >
-                Don't see a repo? Manage access on GitHub ↗
+                Manage access on GitHub <ExternalLink className="size-3" />
               </a>
             )}
-          </div>
-          {isLoadingAvailable && <p className="text-sm text-gray-500">Loading...</p>}
-          <ul className="divide-y divide-gray-100">
+          </CardHeader>
+          <CardContent className="space-y-1">
+            {isLoadingAvailable && (
+              <div className="space-y-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            )}
             {availableRepos?.map((repo) => (
-              <li key={repo.githubRepoId} className="flex items-center justify-between py-2">
-                <label className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    disabled={repo.alreadyImported}
+              <label
+                key={repo.githubRepoId}
+                className="flex items-center justify-between gap-3 rounded-md px-2 py-2 hover:bg-accent has-disabled:opacity-60"
+              >
+                <span className="flex items-center gap-3">
+                  <Checkbox
                     checked={selectedRepoIds.includes(repo.githubRepoId)}
-                    onChange={() => toggleSelected(repo.githubRepoId)}
+                    disabled={repo.alreadyImported}
+                    onCheckedChange={() => toggleSelected(repo.githubRepoId)}
                   />
-                  <div>
-                    <p className="text-sm text-gray-900">{repo.fullName}</p>
-                    <p className="text-xs text-gray-500">{repo.description ?? "No description"}</p>
-                  </div>
-                </label>
-                {repo.alreadyImported && <span className="text-xs text-gray-400">Already imported</span>}
-              </li>
+                  <span>
+                    <p className="text-sm text-foreground">{repo.fullName}</p>
+                    <p className="text-xs text-muted-foreground">{repo.description ?? "No description"}</p>
+                  </span>
+                </span>
+                {repo.alreadyImported && (
+                  <Badge variant="secondary" className="shrink-0">
+                    Already imported
+                  </Badge>
+                )}
+              </label>
             ))}
-          </ul>
-          {availableRepos && availableRepos.length === 0 && (
-            <p className="text-sm text-gray-500">No repositories available for this installation.</p>
-          )}
-          {availableRepos && availableRepos.length > 0 && (
-            <button
-              type="button"
-              onClick={handleImport}
-              disabled={selectedRepoIds.length === 0 || importRepositories.isPending}
-              className="mt-3 rounded bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
-            >
-              {importRepositories.isPending ? "Importing..." : `Import ${selectedRepoIds.length || ""} selected`}
-            </button>
-          )}
-        </section>
+            {availableRepos && availableRepos.length === 0 && (
+              <p className="p-2 text-sm text-muted-foreground">No repositories available for this installation.</p>
+            )}
+            {availableRepos && availableRepos.length > 0 && (
+              <Button type="button" className="mt-2" onClick={handleImport} disabled={selectedRepoIds.length === 0 || importRepositories.isPending}>
+                {importRepositories.isPending && <Loader2 className="animate-spin" />}
+                Import{selectedRepoIds.length > 0 ? ` ${selectedRepoIds.length}` : ""} selected
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       )}
 
-      <section className="rounded border border-gray-200 bg-white">
-        <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 p-4">
-          <form onSubmit={handleFilterSubmit} className="flex flex-wrap items-center gap-2">
-            <input
-              type="text"
+      <div className="flex flex-wrap items-center gap-2">
+        <form onSubmit={handleFilterSubmit} className="flex-1">
+          <InputGroup className="max-w-sm">
+            <InputGroupAddon>
+              <Search className="size-4" />
+            </InputGroupAddon>
+            <InputGroupInput
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Search repositories..."
-              className="rounded border border-gray-300 px-3 py-1.5 text-sm"
+              placeholder="Search repositories…"
             />
-            <input
-              type="text"
-              value={languageInput}
-              onChange={(event) => setLanguageInput(event.target.value)}
-              placeholder="Language..."
-              className="w-32 rounded border border-gray-300 px-3 py-1.5 text-sm"
-            />
-            <button
-              type="submit"
-              className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-            >
-              Filter
-            </button>
-          </form>
-          <select
-            value={filters.sort ?? ""}
-            onChange={(event) =>
-              setFilters((prev) => ({
-                ...prev,
-                sort: (event.target.value || undefined) as ListRepositoriesFilters["sort"],
-              }))
-            }
-            className="rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-700"
-          >
-            <option value="">Recently imported</option>
-            <option value="name">Name</option>
-            <option value="stars">Most stars</option>
-            <option value="updated">Recently pushed</option>
-          </select>
-        </div>
+          </InputGroup>
+        </form>
+        <Select
+          value={filters.sort ?? "imported"}
+          onValueChange={(value) => setFilters((prev) => ({ ...prev, sort: value as ListRepositoriesFilters["sort"] }))}
+        >
+          <SelectTrigger className="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="imported">Recently imported</SelectItem>
+            <SelectItem value="name">Name</SelectItem>
+            <SelectItem value="stars">Most stars</SelectItem>
+            <SelectItem value="updated">Recently pushed</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-        {isLoading && <p className="p-4 text-sm text-gray-500">Loading...</p>}
-        {!isLoading && repositories && repositories.length === 0 && (
-          <p className="p-4 text-sm text-gray-500">No repositories imported yet.</p>
-        )}
-
-        <ul className="divide-y divide-gray-100">
-          {repositories?.map((repo) => (
-            <li key={repo.id} className="flex items-center justify-between p-4">
-              <button type="button" onClick={() => navigate(`/app/${orgSlug}/repositories/${repo.id}`)} className="text-left">
-                <p className="text-sm font-medium text-gray-900">{repo.fullName}</p>
-                <p className="text-xs text-gray-500">
-                  {repo.primaryLanguage ?? "—"} · {repo.starsCount} stars · {repo.description ?? "No description"}
-                </p>
-              </button>
-              <div className="flex items-center gap-3">
-                <span
-                  className={`rounded px-2 py-0.5 text-xs font-medium ${SYNC_STATUS_STYLES[repo.syncStatus] ?? "bg-gray-100 text-gray-600"}`}
-                >
-                  {repo.syncStatus}
-                </span>
-                {canManage && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleSync(repo.id)}
-                      disabled={syncRepository.isPending}
-                      className="text-xs font-medium text-gray-600 hover:text-gray-900"
-                    >
-                      Sync
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRemove(repo.id, repo.fullName)}
-                      className="text-xs font-medium text-red-600 hover:text-red-700"
-                    >
-                      Remove
-                    </button>
-                  </>
-                )}
-              </div>
-            </li>
+      {isLoading && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-32 w-full" />
           ))}
-        </ul>
-      </section>
+        </div>
+      )}
+
+      {isError && <ErrorState message="Failed to load repositories." onRetry={() => refetch()} />}
+
+      {!isLoading && !isError && repositories && repositories.length === 0 && (
+        <EmptyState icon={FolderGit2} title="No repositories imported yet" description="Import a repository from GitHub to start analyzing it." />
+      )}
+
+      {!isLoading && !isError && repositories && repositories.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {repositories.map((repo) => (
+            <Card
+              key={repo.id}
+              role="button"
+              tabIndex={0}
+              className="group cursor-pointer transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              onClick={() => navigate(`/app/${orgSlug}/repositories/${repo.id}`)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  navigate(`/app/${orgSlug}/repositories/${repo.id}`);
+                }
+              }}
+            >
+              <CardContent className="space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-start gap-2">
+                    <FolderGit2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{repo.fullName}</p>
+                      <p className="line-clamp-2 text-xs text-muted-foreground">{repo.description ?? "No description"}</p>
+                    </div>
+                  </div>
+                  <StatusBadge tone={SYNC_STATUS_TONE[repo.syncStatus]} className="shrink-0">
+                    {repo.syncStatus.toLowerCase()}
+                  </StatusBadge>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  {repo.primaryLanguage && (
+                    <span className="flex items-center gap-1">
+                      <span className="size-2 rounded-full bg-primary" />
+                      {repo.primaryLanguage}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1">
+                    <Star className="size-3" />
+                    {repo.starsCount}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <GitBranch className="size-3" />
+                    {repo.defaultBranch}
+                  </span>
+                </div>
+
+                {canManage && (
+                  <div className="flex items-center gap-3 border-t border-border pt-2.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSync(repo.id);
+                      }}
+                      disabled={syncRepository.isPending}
+                      className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                    >
+                      <RefreshCw className="size-3" /> Sync
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemove(repo.id, repo.fullName);
+                      }}
+                      className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="size-3" /> Remove
+                    </button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

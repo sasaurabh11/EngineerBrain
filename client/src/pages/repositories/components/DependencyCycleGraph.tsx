@@ -29,9 +29,15 @@ export function DependencyCycleGraph({ cycle }: { cycle: string[] }) {
   }));
 
   return (
-    <div style={{ height: 280 }} className="rounded border border-gray-200 bg-gray-50">
-      <ReactFlow nodes={nodes} edges={edges} fitView proOptions={{ hideAttribution: true }}>
-        <Background />
+    <div style={{ height: 280 }} className="overflow-hidden rounded-lg border border-border bg-muted/40">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        fitView
+        proOptions={{ hideAttribution: true }}
+        defaultEdgeOptions={{ style: { stroke: "var(--destructive)" } }}
+      >
+        <Background color="var(--border)" />
         <Controls showInteractive={false} />
       </ReactFlow>
     </div>

@@ -1,6 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { ErrorState } from "@/components/error-state";
 import { invitationsApi } from "../../api/invitations.api";
 
 export function AcceptInvitationPage() {
@@ -23,14 +26,19 @@ export function AcceptInvitationPage() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-md rounded border border-gray-200 bg-white p-6 text-center">
-        <p className="mb-3 text-sm text-red-600">{error}</p>
-        <Link to="/organizations" className="text-sm font-medium text-gray-900 underline">
-          Go to your organizations
-        </Link>
+      <div className="w-full max-w-md space-y-4">
+        <ErrorState title="Couldn't accept invitation" message={error} />
+        <Button asChild variant="outline" className="w-full">
+          <Link to="/organizations">Go to your organizations</Link>
+        </Button>
       </div>
     );
   }
 
-  return <p className="text-sm text-gray-500">Accepting invitation...</p>;
+  return (
+    <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
+      <Loader2 className="size-5 animate-spin text-primary" />
+      Accepting invitation…
+    </div>
+  );
 }

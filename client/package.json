@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.61.8",
+    "@clerk/themes": "^2.4.57",
     "@fontsource-variable/geist": "^5.2.9",
     "@fontsource-variable/geist-mono": "^5.2.8",
     "@hookform/resolvers": "^5.4.0",
@@ -26,6 +27,7 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-hook-form": "^7.81.0",
+    "react-is": "^19.2.7",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.1",
     "react-syntax-highlighter": "^16.1.1",

@@ -1,16 +1,23 @@
-import { useState } from "react";
+import { Bot, Loader2 } from "lucide-react";
+import { useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/empty-state";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { useRepositories } from "../../hooks/useRepositories";
 import { useCreateTask, useTaskList, useWorkflows } from "../../hooks/useTasks";
 import type { TaskStatus } from "../../types/task.types";
 
-const STATUS_STYLES: Record<TaskStatus, string> = {
-  QUEUED: "bg-gray-100 text-gray-600",
-  RUNNING: "bg-blue-100 text-blue-700",
-  PENDING_APPROVAL: "bg-yellow-100 text-yellow-700",
-  COMPLETED: "bg-green-100 text-green-700",
-  FAILED: "bg-red-100 text-red-700",
-  CANCELLED: "bg-gray-100 text-gray-500",
+const TASK_STATUS_TONE: Record<TaskStatus, StatusTone> = {
+  QUEUED: "neutral",
+  RUNNING: "info",
+  PENDING_APPROVAL: "warning",
+  COMPLETED: "success",
+  FAILED: "danger",
+  CANCELLED: "neutral",
 };
 
 export function AgentDashboardPage() {
@@ -29,11 +36,11 @@ export function AgentDashboardPage() {
   const selectedWorkflow = workflows?.find((w) => w.key === workflowKey);
 
   function handleWorkflowChange(key: string) {
-    setWorkflowKey(key);
+    setWorkflowKey(key === "adhoc" ? "" : key);
     setWorkflowParamValues({});
   }
 
-  async function handleCreate(e: React.FormEvent) {
+  async function handleCreate(e: FormEvent) {
     e.preventDefault();
     setFormError(null);
     try {
@@ -62,103 +69,117 @@ export function AgentDashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">AI Task Center</h1>
-        <p className="text-sm text-gray-500">Run autonomous multi-step engineering agents against your repositories.</p>
+        <h1 className="text-xl font-semibold text-foreground">AI Task Center</h1>
+        <p className="text-sm text-muted-foreground">Run autonomous multi-step engineering agents against your repositories.</p>
       </div>
 
-      <form onSubmit={handleCreate} className="space-y-3 rounded border border-gray-200 bg-white p-4">
-        <div>
-          <label className="text-xs font-medium text-gray-700">Goal</label>
-          <input
-            value={goal}
-            onChange={(e) => setGoal(e.target.value)}
-            placeholder="e.g. Review this repository's architecture"
-            required
-            className="mt-1 w-full rounded border border-gray-300 px-3 py-1.5 text-sm"
-          />
-        </div>
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <label className="text-xs font-medium text-gray-700">Workflow (optional - leave blank for an ad hoc plan)</label>
-            <select
-              value={workflowKey}
-              onChange={(e) => handleWorkflowChange(e.target.value)}
-              className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
-            >
-              <option value="">Ad hoc (Planner decides)</option>
-              {workflows?.map((w) => (
-                <option key={w.key} value={w.key}>
-                  {w.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex-1">
-            <label className="text-xs font-medium text-gray-700">Repository (optional)</label>
-            <select
-              value={repositoryId}
-              onChange={(e) => setRepositoryId(e.target.value)}
-              className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
-            >
-              <option value="">None</option>
-              {repositories?.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        {selectedWorkflow && <p className="text-xs text-gray-500">{selectedWorkflow.description}</p>}
-        {selectedWorkflow && selectedWorkflow.params.length > 0 && (
-          <div className="flex gap-3">
-            {selectedWorkflow.params.map((param) => (
-              <div key={param.key} className="flex-1">
-                <label className="text-xs font-medium text-gray-700">
-                  {param.label}
-                  {param.required && " *"}
-                </label>
-                <input
-                  type={param.type === "number" ? "number" : "text"}
-                  value={workflowParamValues[param.key] ?? ""}
-                  onChange={(e) => setWorkflowParamValues((prev) => ({ ...prev, [param.key]: e.target.value }))}
-                  required={param.required}
-                  className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
-                />
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">Run a new task</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleCreate} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Goal</label>
+              <Input
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
+                placeholder="e.g. Review this repository's architecture"
+                required
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Workflow (optional)</label>
+                <Select value={workflowKey || "adhoc"} onValueChange={handleWorkflowChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="adhoc">Ad hoc (Planner decides)</SelectItem>
+                    {workflows?.map((w) => (
+                      <SelectItem key={w.key} value={w.key}>
+                        {w.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            ))}
-          </div>
-        )}
-        {formError && <p className="text-sm text-red-600">{formError}</p>}
-        <button
-          type="submit"
-          disabled={createTask.isPending || !goal}
-          className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {createTask.isPending ? "Starting..." : "Run task"}
-        </button>
-      </form>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Repository (optional)</label>
+                <Select value={repositoryId || "none"} onValueChange={(v) => setRepositoryId(v === "none" ? "" : v)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {repositories?.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
-      <ul className="divide-y divide-gray-100 rounded border border-gray-200 bg-white">
-        {taskPage?.items.length === 0 && <li className="p-4 text-sm text-gray-500">No tasks yet.</li>}
-        {taskPage?.items.map((task) => (
-          <li key={task.id} className="p-3">
-            <Link to={`/app/${orgSlug}/tasks/${task.id}`} className="flex items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_STYLES[task.status]}`}>{task.status}</span>
-                  {task.workflowKey && <span className="text-xs text-gray-400">{task.workflowKey}</span>}
-                </div>
-                <p className="mt-1 text-sm text-gray-900">{task.goal}</p>
+            {selectedWorkflow && <p className="text-xs text-muted-foreground">{selectedWorkflow.description}</p>}
+            {selectedWorkflow && selectedWorkflow.params.length > 0 && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {selectedWorkflow.params.map((param) => (
+                  <div key={param.key} className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      {param.label}
+                      {param.required && " *"}
+                    </label>
+                    <Input
+                      type={param.type === "number" ? "number" : "text"}
+                      value={workflowParamValues[param.key] ?? ""}
+                      onChange={(e) => setWorkflowParamValues((prev) => ({ ...prev, [param.key]: e.target.value }))}
+                      required={param.required}
+                    />
+                  </div>
+                ))}
               </div>
-              <div className="text-right text-xs text-gray-400">
-                <p>{new Date(task.createdAt).toLocaleString()}</p>
-                {task.status === "RUNNING" && <p>{task.progress}%</p>}
-              </div>
-            </Link>
-          </li>
-        ))}
-      </ul>
+            )}
+
+            {formError && <p className="text-sm text-destructive">{formError}</p>}
+
+            <Button type="submit" disabled={createTask.isPending || !goal}>
+              {createTask.isPending && <Loader2 className="animate-spin" />}
+              Run task
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {taskPage?.items.length === 0 && (
+        <EmptyState icon={Bot} title="No agent tasks yet" description="Run a workflow to review a PR, triage an issue, or audit a repository." />
+      )}
+
+      {taskPage && taskPage.items.length > 0 && (
+        <Card className="py-0">
+          <ul className="divide-y divide-border">
+            {taskPage.items.map((task) => (
+              <li key={task.id}>
+                <Link to={`/app/${orgSlug}/tasks/${task.id}`} className="flex items-center justify-between gap-3 p-4 hover:bg-accent">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <StatusBadge tone={TASK_STATUS_TONE[task.status]}>{task.status.replace("_", " ").toLowerCase()}</StatusBadge>
+                      {task.workflowKey && <span className="text-xs text-muted-foreground">{task.workflowKey}</span>}
+                    </div>
+                    <p className="mt-1 truncate text-sm text-foreground">{task.goal}</p>
+                  </div>
+                  <div className="shrink-0 text-right text-xs text-muted-foreground">
+                    <p>{new Date(task.createdAt).toLocaleString()}</p>
+                    {task.status === "RUNNING" && <p className="tabular-nums">{task.progress}%</p>}
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
     </div>
   );
 }

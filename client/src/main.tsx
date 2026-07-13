@@ -1,4 +1,3 @@
-import { ClerkProvider } from '@clerk/clerk-react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -6,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.tsx'
 import { Toaster } from './components/ui/sonner.tsx'
 import { TooltipProvider } from './components/ui/tooltip.tsx'
+import { ClerkThemedProvider } from './lib/clerk-theme.tsx'
 import { ThemeProvider } from './lib/theme.tsx'
 import './index.css'
 
@@ -20,7 +20,7 @@ const queryClient = new QueryClient()
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
-      <ClerkProvider publishableKey={clerkPublishableKey} afterSignOutUrl="/sign-in">
+      <ClerkThemedProvider publishableKey={clerkPublishableKey}>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
             <TooltipProvider delayDuration={200}>
@@ -29,7 +29,7 @@ createRoot(document.getElementById('root')!).render(
             </TooltipProvider>
           </BrowserRouter>
         </QueryClientProvider>
-      </ClerkProvider>
+      </ClerkThemedProvider>
     </ThemeProvider>
   </StrictMode>,
 )

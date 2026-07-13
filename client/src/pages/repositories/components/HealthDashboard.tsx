@@ -1,4 +1,13 @@
+import { AlertTriangle, ChevronDown, Download, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
+import { cn } from "@/lib/utils";
 import { downloadBlob, analysisApi } from "../../../api/analysis.api";
 import {
   useAnalysisStatus,
@@ -27,29 +36,29 @@ const SCORE_LABELS = [
   { key: "technicalDebtScore", label: "Technical Debt" },
 ] as const;
 
-const SEVERITY_STYLES: Record<string, string> = {
-  CRITICAL: "bg-red-100 text-red-700",
-  HIGH: "bg-orange-100 text-orange-700",
-  MEDIUM: "bg-yellow-100 text-yellow-700",
-  LOW: "bg-blue-100 text-blue-700",
-  INFO: "bg-gray-100 text-gray-600",
+const SEVERITY_TONE: Record<FindingSeverity, StatusTone> = {
+  CRITICAL: "danger",
+  HIGH: "danger",
+  MEDIUM: "warning",
+  LOW: "info",
+  INFO: "neutral",
 };
 
 const CATEGORIES: FindingCategory[] = ["QUALITY", "SECURITY", "PERFORMANCE", "DEPENDENCY", "SOLID", "PATTERN"];
 const SEVERITIES: FindingSeverity[] = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"];
 
-function scoreColor(score: number | null): string {
-  if (score === null) return "text-gray-400";
-  if (score >= 80) return "text-green-600";
-  if (score >= 60) return "text-yellow-600";
-  return "text-red-600";
+function scoreToneClass(score: number | null): string {
+  if (score === null) return "text-muted-foreground";
+  if (score >= 80) return "text-success";
+  if (score >= 60) return "text-warning";
+  return "text-destructive";
 }
 
 function ScoreCard({ label, score }: { label: string; score: number | null }) {
   return (
-    <div className="rounded border border-gray-200 bg-white p-4 text-center">
-      <p className={`text-3xl font-semibold ${scoreColor(score)}`}>{score ?? "—"}</p>
-      <p className="mt-1 text-xs text-gray-500">{label}</p>
+    <div className="rounded-lg border border-border bg-card p-4 text-center">
+      <p className={cn("text-3xl font-semibold tabular-nums", scoreToneClass(score))}>{score ?? "—"}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{label}</p>
     </div>
   );
 }
@@ -59,60 +68,58 @@ function FindingRow({ finding }: { finding: Finding }) {
   const isCycle = finding.type === "CIRCULAR_DEPENDENCY" && Array.isArray(finding.metadata?.cycle);
 
   return (
-    <li className="p-3">
+    <li className="p-4">
       <button type="button" onClick={() => setExpanded((v) => !v)} className="flex w-full items-start justify-between gap-3 text-left">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${SEVERITY_STYLES[finding.severity] ?? ""}`}>
-              {finding.severity}
-            </span>
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge tone={SEVERITY_TONE[finding.severity]}>{finding.severity.toLowerCase()}</StatusBadge>
             {finding.priority && finding.priority !== finding.severity && (
-              <span className="text-xs text-gray-400">priority {finding.priority}</span>
+              <span className="text-xs text-muted-foreground">priority {finding.priority.toLowerCase()}</span>
             )}
-            <span className="text-xs text-gray-400">{finding.category}</span>
-            <span className="text-xs text-gray-400">· confidence {finding.confidence}%</span>
+            <Badge variant="outline">{finding.category}</Badge>
+            <span className="text-xs text-muted-foreground">confidence {finding.confidence}%</span>
           </div>
-          <p className="mt-1 text-sm text-gray-900">{finding.title}</p>
+          <p className="text-sm font-medium text-foreground">{finding.title}</p>
           {finding.filePath && (
-            <p className="font-mono text-xs text-gray-500">
+            <p className="font-mono text-xs text-muted-foreground">
               {finding.filePath}
               {finding.startLine ? `:${finding.startLine}` : ""}
             </p>
           )}
         </div>
-        <span className="text-xs text-gray-400">{expanded ? "Hide" : "Details"}</span>
+        <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-180")} />
       </button>
 
       {expanded && (
-        <div className="mt-3 space-y-2 border-t border-gray-100 pt-3 text-sm text-gray-700">
+        <div className="mt-3 space-y-2 border-t border-border pt-3 text-sm text-muted-foreground">
           <p>{finding.explanation}</p>
           {finding.evidence && (
-            <p className="text-gray-600">
-              <span className="font-medium text-gray-900">Evidence: </span>
+            <p>
+              <span className="font-medium text-foreground">Evidence: </span>
               {finding.evidence}
             </p>
           )}
           {finding.suggestedFix && (
-            <p className="text-gray-600">
-              <span className="font-medium text-gray-900">Suggested fix: </span>
+            <p>
+              <span className="font-medium text-foreground">Suggested fix: </span>
               {finding.suggestedFix}
             </p>
           )}
           {finding.estimatedImpact && (
-            <p className="text-gray-600">
-              <span className="font-medium text-gray-900">Estimated impact: </span>
+            <p>
+              <span className="font-medium text-foreground">Estimated impact: </span>
               {finding.estimatedImpact}
             </p>
           )}
           {finding.relatedFiles.length > 1 && (
-            <p className="text-gray-600">
-              <span className="font-medium text-gray-900">Related files: </span>
+            <p>
+              <span className="font-medium text-foreground">Related files: </span>
               {finding.relatedFiles.join(", ")}
             </p>
           )}
           {(finding.relatedClasses.length > 0 || finding.relatedFunctions.length > 0) && (
-            <p className="text-gray-600">
-              <span className="font-medium text-gray-900">Related symbols: </span>
+            <p>
+              <span className="font-medium text-foreground">Related symbols: </span>
               {[...finding.relatedClasses, ...finding.relatedFunctions].join(", ")}
             </p>
           )}
@@ -134,25 +141,27 @@ function DetectedPatterns({ patterns }: { patterns: Finding[] }) {
   }
 
   return (
-    <div className="rounded border border-gray-200 bg-white p-4">
-      <p className="text-sm font-medium text-gray-900">Detected design patterns</p>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-medium">Detected design patterns</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-3 sm:grid-cols-2">
         {[...byType.entries()].map(([type, instances]) => (
-          <div key={type} className="rounded border border-gray-100 bg-gray-50 p-3">
-            <p className="text-sm font-medium text-gray-900">
-              {type} <span className="font-normal text-gray-500">({instances.length})</span>
+          <div key={type} className="rounded-lg border border-border bg-muted/40 p-3">
+            <p className="text-sm font-medium text-foreground">
+              {type} <span className="font-normal text-muted-foreground">({instances.length})</span>
             </p>
             <ul className="mt-1 space-y-1">
               {instances.slice(0, 5).map((i) => (
-                <li key={i.id} className="font-mono text-xs text-gray-500">
+                <li key={i.id} className="font-mono text-xs text-muted-foreground">
                   {i.filePath} · confidence {i.confidence}%
                 </li>
               ))}
             </ul>
           </div>
         ))}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -196,65 +205,54 @@ export function HealthDashboard({ orgSlug, repositoryId }: { orgSlug: string; re
 
   if (!status || status.status === "PENDING") {
     return (
-      <div className="flex flex-col items-center gap-3 rounded border border-gray-200 bg-white p-8 text-center">
-        <p className="text-sm text-gray-500">No health analysis has run for this repository yet.</p>
-        <button
-          type="button"
-          onClick={() => triggerAnalysis.mutate()}
-          disabled={triggerAnalysis.isPending}
-          className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          Run analysis
-        </button>
-      </div>
+      <EmptyState
+        icon={ShieldCheck}
+        title="No health analysis yet"
+        description="Run a full architecture, security, and quality analysis for this repository."
+        action={
+          <Button type="button" onClick={() => triggerAnalysis.mutate()} disabled={triggerAnalysis.isPending}>
+            {triggerAnalysis.isPending && <Loader2 className="animate-spin" />}
+            Run analysis
+          </Button>
+        }
+      />
     );
   }
 
   if (status.status === "RUNNING") {
     return (
-      <div className="space-y-3 rounded border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
-        <p>Analyzing repository...</p>
-        <button
-          type="button"
-          onClick={() => cancelAnalysis.mutate(status.id)}
-          disabled={cancelAnalysis.isPending}
-          className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-        >
+      <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-card p-10 text-center">
+        <Loader2 className="size-5 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Analyzing repository…</p>
+        <Button type="button" variant="outline" size="sm" onClick={() => cancelAnalysis.mutate(status.id)} disabled={cancelAnalysis.isPending}>
           Cancel analysis
-        </button>
+        </Button>
       </div>
     );
   }
 
   if (status.status === "CANCELLED") {
     return (
-      <div className="space-y-3 rounded border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
-        <p>The last analysis was cancelled.</p>
-        <button
-          type="button"
-          onClick={() => triggerAnalysis.mutate()}
-          disabled={triggerAnalysis.isPending}
-          className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          Run analysis
-        </button>
-      </div>
+      <EmptyState
+        icon={AlertTriangle}
+        title="Analysis cancelled"
+        description="The last analysis run was cancelled before it finished."
+        action={
+          <Button type="button" onClick={() => triggerAnalysis.mutate()} disabled={triggerAnalysis.isPending}>
+            Run analysis
+          </Button>
+        }
+      />
     );
   }
 
   if (status.status === "FAILED") {
     return (
-      <div className="space-y-3 rounded border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-        <p>Analysis failed{status.errorMessage ? `: ${status.errorMessage}` : "."}</p>
-        <button
-          type="button"
-          onClick={() => retryAnalysis.mutate(status.id)}
-          disabled={retryAnalysis.isPending}
-          className="rounded border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
-        >
-          Retry
-        </button>
-      </div>
+      <ErrorState
+        title="Analysis failed"
+        message={status.errorMessage ?? "The analysis run did not complete."}
+        onRetry={() => retryAnalysis.mutate(status.id)}
+      />
     );
   }
 
@@ -263,36 +261,23 @@ export function HealthDashboard({ orgSlug, repositoryId }: { orgSlug: string; re
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
           {analysis?.completedAt && `Last analyzed ${new Date(analysis.completedAt).toLocaleString()}`}
         </p>
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={handleDownloadJson}
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Download JSON
-          </button>
-          <button
-            type="button"
-            onClick={handleDownloadMarkdown}
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Download Markdown
-          </button>
-          <button
-            type="button"
-            onClick={() => triggerAnalysis.mutate()}
-            disabled={triggerAnalysis.isPending}
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            Re-run analysis
-          </button>
+          <Button type="button" variant="outline" size="sm" onClick={handleDownloadJson}>
+            <Download /> JSON
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={handleDownloadMarkdown}>
+            <Download /> Markdown
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => triggerAnalysis.mutate()} disabled={triggerAnalysis.isPending}>
+            <RefreshCw className={cn(triggerAnalysis.isPending && "animate-spin")} /> Re-run analysis
+          </Button>
         </div>
       </div>
-      {reportError && <p className="text-sm text-red-600">{reportError}</p>}
+      {reportError && <p className="text-sm text-destructive">{reportError}</p>}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
         {SCORE_LABELS.map(({ key, label }) => (
@@ -301,56 +286,68 @@ export function HealthDashboard({ orgSlug, repositoryId }: { orgSlug: string; re
       </div>
 
       {analysis?.architectureSummary && (
-        <div className="rounded border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-900">Architecture summary</p>
-          <p className="mt-2 text-sm text-gray-700">{analysis.architectureSummary}</p>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">Architecture summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">{analysis.architectureSummary}</p>
+          </CardContent>
+        </Card>
       )}
 
       {trend && trend.length > 1 && (
         <div>
-          <p className="mb-2 text-sm font-medium text-gray-900">Score trend</p>
+          <p className="mb-2 text-sm font-medium text-foreground">Score trend</p>
           <TrendChart history={trend} />
         </div>
       )}
 
       <DetectedPatterns patterns={patterns} />
 
-      <div className="flex gap-2">
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value as FindingCategory | "")}
-          className="rounded border border-gray-300 px-2 py-1 text-sm"
-        >
-          <option value="">All categories</option>
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-        <select
-          value={severity}
-          onChange={(e) => setSeverity(e.target.value as FindingSeverity | "")}
-          className="rounded border border-gray-300 px-2 py-1 text-sm"
-        >
-          <option value="">All severities</option>
-          {SEVERITIES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+      <div className="flex flex-wrap gap-2">
+        <Select value={category || "all"} onValueChange={(v) => setCategory(v === "all" ? "" : (v as FindingCategory))}>
+          <SelectTrigger className="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All categories</SelectItem>
+            {CATEGORIES.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={severity || "all"} onValueChange={(v) => setSeverity(v === "all" ? "" : (v as FindingSeverity))}>
+          <SelectTrigger className="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All severities</SelectItem>
+            {SEVERITIES.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      <ul className="divide-y divide-gray-100 rounded border border-gray-200 bg-white">
-        {findings.length === 0 && <li className="p-4 text-sm text-gray-500">No findings match these filters.</li>}
-        {findings.map((finding) => (
-          <FindingRow key={finding.id} finding={finding} />
-        ))}
-      </ul>
+      <Card className="py-0">
+        <ul className="divide-y divide-border">
+          {findings.length === 0 && (
+            <li className="p-6">
+              <EmptyState icon={ShieldCheck} title="No findings" description="No findings match these filters." />
+            </li>
+          )}
+          {findings.map((finding) => (
+            <FindingRow key={finding.id} finding={finding} />
+          ))}
+        </ul>
+      </Card>
       {findingsPage && findingsPage.pageInfo.totalCount > findings.length && (
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-muted-foreground">
           Showing {findings.length} of {findingsPage.pageInfo.totalCount} findings.
         </p>
       )}

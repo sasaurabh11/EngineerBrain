@@ -47,10 +47,10 @@ export function DashboardPage() {
   const { orgSlug = "" } = useParams();
   const { data: me } = useMe();
   const { data: organization } = useOrganization(orgSlug);
-  const { data: members } = useMembers(orgSlug);
-  const { data: repositories } = useRepositories(orgSlug, {});
-  const { data: taskPage } = useTaskList(orgSlug);
-  const { data: conversations } = useConversations(orgSlug);
+  const { data: members, isLoading: isLoadingMembers } = useMembers(orgSlug);
+  const { data: repositories, isLoading: isLoadingRepositories } = useRepositories(orgSlug, {});
+  const { data: taskPage, isLoading: isLoadingTasks } = useTaskList(orgSlug);
+  const { data: conversations, isLoading: isLoadingConversations } = useConversations(orgSlug);
 
   return (
     <div className="space-y-6">
@@ -82,7 +82,13 @@ export function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent>
-            {repositories && repositories.length > 0 ? (
+            {isLoadingRepositories ? (
+              <div className="space-y-2">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            ) : repositories && repositories.length > 0 ? (
               <div className="space-y-0.5">
                 {repositories.slice(0, 5).map((repo) => (
                   <RepoHealthRow key={repo.id} orgSlug={orgSlug} repositoryId={repo.id} name={repo.name} />
@@ -111,7 +117,7 @@ export function DashboardPage() {
             {me && (
               <div className="flex items-center gap-3">
                 <Avatar>
-                  <AvatarImage src={me.profileImage ?? undefined} />
+                  <AvatarImage src={me.profileImage ?? undefined} alt={me.name} />
                   <AvatarFallback>{me.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
@@ -144,7 +150,12 @@ export function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent>
-            {taskPage && taskPage.items.length > 0 ? (
+            {isLoadingTasks ? (
+              <div className="space-y-2">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            ) : taskPage && taskPage.items.length > 0 ? (
               <div className="space-y-0.5">
                 {taskPage.items.slice(0, 5).map((task) => (
                   <Link
@@ -173,7 +184,12 @@ export function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent>
-            {conversations && conversations.length > 0 ? (
+            {isLoadingConversations ? (
+              <div className="space-y-2">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            ) : conversations && conversations.length > 0 ? (
               <div className="space-y-0.5">
                 {conversations.slice(0, 5).map((c) => (
                   <Link
@@ -200,7 +216,12 @@ export function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent>
-            {members && members.length > 0 ? (
+            {isLoadingMembers ? (
+              <div className="space-y-2">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            ) : members && members.length > 0 ? (
               <div className="space-y-0.5">
                 {members.slice(0, 5).map((member) => (
                   <div key={member.id} className="flex items-center justify-between gap-2 px-2 py-2">

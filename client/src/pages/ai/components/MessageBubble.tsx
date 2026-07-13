@@ -64,9 +64,9 @@ export function MessageBubble({ role, content, citations, onCopy }: MessageBubbl
         {!isUser && citations && citations.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border pt-2.5">
             {citations.map((c) => (
-              <Badge key={`${c.repositoryId}-${c.filePath}`} variant="secondary" className="gap-1 font-mono font-normal">
-                <FileCode2 className="size-3" />
-                {c.filePath}
+              <Badge key={`${c.repositoryId}-${c.filePath}`} variant="secondary" className="max-w-full gap-1 font-mono font-normal">
+                <FileCode2 className="size-3 shrink-0" />
+                <span className="truncate">{c.filePath}</span>
               </Badge>
             ))}
           </div>

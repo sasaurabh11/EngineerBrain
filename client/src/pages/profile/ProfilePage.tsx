@@ -1,16 +1,17 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { Loader2 } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useMe, useUpdateMe } from "../../hooks/useMe";
+import type { UserProfile } from "../../types/user.types";
 
-export function ProfilePage() {
-  const { data: me, isLoading } = useMe();
+function ProfileForm({ me }: { me: UserProfile }) {
   const updateMe = useUpdateMe();
-  const [name, setName] = useState("");
+  const [name, setName] = useState(me.name);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    if (me) setName(me.name);
-  }, [me]);
 
   async function handleSave(event: FormEvent) {
     event.preventDefault();
@@ -24,43 +25,56 @@ export function ProfilePage() {
     }
   }
 
+  return (
+    <Card>
+      <CardContent>
+        <form onSubmit={handleSave} className="space-y-3">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground" htmlFor="profile-name">
+              Display name
+            </label>
+            <Input id="profile-name" type="text" required value={name} onChange={(event) => setName(event.target.value)} />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          {saved && <p className="text-sm text-success">Saved.</p>}
+          <Button type="submit" disabled={updateMe.isPending}>
+            {updateMe.isPending && <Loader2 className="animate-spin" />}
+            Save
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function ProfilePage() {
+  const { data: me, isLoading } = useMe();
+
   if (isLoading || !me) {
-    return <p className="text-sm text-gray-500">Loading...</p>;
+    return (
+      <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+        <Loader2 className="mr-2 size-4 animate-spin" /> Loading profile…
+      </div>
+    );
   }
 
   return (
-    <div className="mx-auto max-w-md">
-      <h1 className="mb-4 text-xl font-semibold text-gray-900">Your profile</h1>
-      <div className="mb-6 flex items-center gap-3 rounded border border-gray-200 bg-white p-4">
-        {me.profileImage && <img src={me.profileImage} alt="" className="h-12 w-12 rounded-full" />}
-        <div>
-          <p className="text-sm font-medium text-gray-900">{me.name}</p>
-          <p className="text-xs text-gray-500">{me.email}</p>
-        </div>
-      </div>
+    <div className="mx-auto max-w-md space-y-6">
+      <h1 className="text-xl font-semibold text-foreground">Your profile</h1>
+      <Card>
+        <CardContent className="flex items-center gap-3">
+          <Avatar className="size-12">
+            <AvatarImage src={me.profileImage ?? undefined} alt={me.name} />
+            <AvatarFallback>{me.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <div>
+            <p className="text-sm font-medium text-foreground">{me.name}</p>
+            <p className="text-xs text-muted-foreground">{me.email}</p>
+          </div>
+        </CardContent>
+      </Card>
 
-      <form onSubmit={handleSave} className="rounded border border-gray-200 bg-white p-4">
-        <label className="mb-1 block text-xs font-medium text-gray-700" htmlFor="profile-name">
-          Display name
-        </label>
-        <input
-          id="profile-name"
-          type="text"
-          required
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          className="mb-3 w-full rounded border border-gray-300 px-3 py-1.5 text-sm"
-        />
-        {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
-        {saved && <p className="mb-3 text-sm text-green-600">Saved.</p>}
-        <button
-          type="submit"
-          disabled={updateMe.isPending}
-          className="rounded bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
-        >
-          {updateMe.isPending ? "Saving..." : "Save"}
-        </button>
-      </form>
+      <ProfileForm key={me.email} me={me} />
     </div>
   );
 }

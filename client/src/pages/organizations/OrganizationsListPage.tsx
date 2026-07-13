@@ -1,5 +1,12 @@
+import { Building2, Loader2, Mail, Plus } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/empty-state";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAcceptInvitation, useDeclineInvitation, useMyInvitations } from "../../hooks/useInvitations";
 import { useCreateOrganization, useOrganizations } from "../../hooks/useOrganizations";
 
@@ -51,104 +58,133 @@ export function OrganizationsListPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto max-w-2xl space-y-8">
       {invitations && invitations.length > 0 && (
-        <section className="mb-8 rounded border border-blue-200 bg-blue-50 p-4">
-          <h2 className="mb-3 text-sm font-semibold text-gray-900">Pending invitations</h2>
-          {invitationError && <p className="mb-3 text-sm text-red-600">{invitationError}</p>}
-          <ul className="divide-y divide-blue-100">
-            {invitations.map((invitation) => (
-              <li key={invitation.id} className="flex items-center justify-between py-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{invitation.organization.name}</p>
-                  <p className="text-xs text-gray-600">
-                    Invited by {invitation.invitedBy.name} as {invitation.role}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleAcceptInvitation(invitation.id, invitation.organization.slug)}
-                    disabled={acceptInvitation.isPending}
-                    className="rounded bg-gray-900 px-3 py-1 text-xs font-medium text-white hover:bg-gray-700 disabled:opacity-50"
-                  >
-                    Accept
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeclineInvitation(invitation.id)}
-                    disabled={declineInvitation.isPending}
-                    className="rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-                  >
-                    Decline
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <Card className="border-info/30 bg-info/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <Mail className="size-4" /> Pending invitations
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {invitationError && <p className="mb-3 text-sm text-destructive">{invitationError}</p>}
+            <ul className="divide-y divide-border">
+              {invitations.map((invitation) => (
+                <li key={invitation.id} className="flex items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">{invitation.organization.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Invited by {invitation.invitedBy.name} as {invitation.role}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => handleAcceptInvitation(invitation.id, invitation.organization.slug)}
+                      disabled={acceptInvitation.isPending}
+                    >
+                      Accept
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeclineInvitation(invitation.id)}
+                      disabled={declineInvitation.isPending}
+                    >
+                      Decline
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       )}
 
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Your organizations</h1>
-        <button
-          type="button"
-          onClick={() => setIsCreating((prev) => !prev)}
-          className="rounded bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700"
-        >
-          {isCreating ? "Cancel" : "New organization"}
-        </button>
+      <div>
+        <div className="mb-4 flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-foreground">Your organizations</h1>
+          <Button type="button" onClick={() => setIsCreating((prev) => !prev)} variant={isCreating ? "outline" : "default"}>
+            {isCreating ? (
+              "Cancel"
+            ) : (
+              <>
+                <Plus /> New organization
+              </>
+            )}
+          </Button>
+        </div>
+
+        {isCreating && (
+          <Card className="mb-4">
+            <CardContent>
+              <form onSubmit={handleCreate} className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground" htmlFor="org-name">
+                    Organization name
+                  </label>
+                  <Input
+                    id="org-name"
+                    type="text"
+                    required
+                    minLength={2}
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Engineer Brain"
+                  />
+                </div>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <Button type="submit" disabled={createOrganization.isPending}>
+                  {createOrganization.isPending && <Loader2 className="animate-spin" />}
+                  Create organization
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {isLoading && (
+          <div className="space-y-2">
+            <Skeleton className="h-14 w-full" />
+            <Skeleton className="h-14 w-full" />
+          </div>
+        )}
+
+        {!isLoading && organizations && organizations.length === 0 && (
+          <EmptyState icon={Building2} title="No organizations yet" description="Create one to get started." />
+        )}
+
+        {organizations && organizations.length > 0 && (
+          <Card className="py-0">
+            <ul className="divide-y divide-border">
+              {organizations.map((org) => (
+                <li key={org.id}>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/app/${org.slug}/dashboard`)}
+                    className="flex w-full items-center justify-between gap-3 p-4 text-left hover:bg-accent"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Building2 className="size-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{org.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">{org.slug}</p>
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="shrink-0">
+                      {org.role}
+                    </Badge>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
       </div>
-
-      {isCreating && (
-        <form onSubmit={handleCreate} className="mb-6 rounded border border-gray-200 bg-white p-4">
-          <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="org-name">
-            Organization name
-          </label>
-          <input
-            id="org-name"
-            type="text"
-            required
-            minLength={2}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            className="mb-3 w-full rounded border border-gray-300 px-3 py-1.5 text-sm"
-            placeholder="Engineer Brain"
-          />
-          {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={createOrganization.isPending}
-            className="rounded bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
-          >
-            {createOrganization.isPending ? "Creating..." : "Create organization"}
-          </button>
-        </form>
-      )}
-
-      {isLoading && <p className="text-sm text-gray-500">Loading...</p>}
-
-      {!isLoading && organizations && organizations.length === 0 && (
-        <p className="text-sm text-gray-500">You don't belong to any organization yet. Create one to get started.</p>
-      )}
-
-      <ul className="divide-y divide-gray-200 rounded border border-gray-200 bg-white">
-        {organizations?.map((org) => (
-          <li key={org.id}>
-            <button
-              type="button"
-              onClick={() => navigate(`/app/${org.slug}/dashboard`)}
-              className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-gray-50"
-            >
-              <div>
-                <p className="text-sm font-medium text-gray-900">{org.name}</p>
-                <p className="text-xs text-gray-500">{org.slug}</p>
-              </div>
-              <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{org.role}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
