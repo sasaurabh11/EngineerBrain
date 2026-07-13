@@ -727,6 +727,7 @@ model Task {
   repositoryId   String?
   createdById    String
   workflowKey    String?
+  workflowParams Json?
   goal           String
   status         TaskStatus @default(QUEUED)
   progress       Int        @default(0)

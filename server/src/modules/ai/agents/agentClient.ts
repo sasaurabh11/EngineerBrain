@@ -41,6 +41,28 @@ export function callAgentStep(
   });
 }
 
+function isEmptyResult(result: AgentStepResult): boolean {
+  return !result.message.content && !result.message.tool_calls?.length;
+}
+
+/** Gemini occasionally returns a completely empty message (no text, no tool
+ * call) for no discernible reason - a known LLM API flakiness, not a logic
+ * bug. Used for call sites where an empty result would be silently persisted
+ * as a task/chat's actual final answer, which is worse than one retry. */
+export async function callAgentStepWithRetry(
+  role: AgentRole,
+  messages: ChatMessagePayload[],
+  tools: ToolSpec[] = [],
+  systemContext?: string,
+  signal?: AbortSignal,
+): Promise<AgentStepResult> {
+  const first = await callAgentStep(role, messages, tools, systemContext, signal);
+  if (!isEmptyResult(first)) {
+    return first;
+  }
+  return callAgentStep(role, messages, tools, systemContext, signal);
+}
+
 export interface PlanStepPayload {
   id: string;
   type: "tool" | "agent" | "decision" | "validation";

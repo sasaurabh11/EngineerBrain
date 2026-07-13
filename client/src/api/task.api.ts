@@ -3,8 +3,8 @@ import type { AgentExecution, PageInfo, Task, WorkflowDescriptor } from "../type
 
 export const taskApi = {
   listWorkflows: (orgSlug: string) => apiGet<WorkflowDescriptor[]>(`/organizations/${orgSlug}/tasks/workflows`),
-  create: (orgSlug: string, goal: string, repositoryId?: string, workflowKey?: string) =>
-    apiPost<Task>(`/organizations/${orgSlug}/tasks`, { goal, repositoryId, workflowKey }),
+  create: (orgSlug: string, goal: string, repositoryId?: string, workflowKey?: string, workflowParams?: Record<string, unknown>) =>
+    apiPost<Task>(`/organizations/${orgSlug}/tasks`, { goal, repositoryId, workflowKey, workflowParams }),
   list: (orgSlug: string, page = 1, pageSize = 20, status?: string) =>
     apiGet<{ items: Task[]; pageInfo: PageInfo }>(
       `/organizations/${orgSlug}/tasks?page=${page}&pageSize=${pageSize}${status ? `&status=${status}` : ""}`,

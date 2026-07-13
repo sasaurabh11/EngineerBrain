@@ -80,6 +80,36 @@ def ensure_repository(repository_id: str, clone_url: str, access_token: str, def
     return path
 
 
+def ref_scratch_path(repository_id: str, ref: str) -> Path:
+    return Path(settings.repo_cache_dir) / f"{repository_id}-ref-{ref[:12]}"
+
+
+def ensure_repository_at_ref(repository_id: str, clone_url: str, access_token: str, ref: str) -> Path:
+    """Clones a repository at a SPECIFIC ref (branch name or commit SHA) into a
+    scratch path isolated from the persisted default-branch clone
+    ensure_repository manages - for one-off diff-scoped analysis (e.g. a PR's
+    head commit), not the tracked default-branch state. Always re-clones
+    fresh rather than pulling, since this path is only ever used a handful of
+    times per PR, not kept warm like the main analysis cache."""
+    path = ref_scratch_path(repository_id, ref)
+    if path.exists():
+        shutil.rmtree(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    authenticated_url = _authenticated_url(clone_url, access_token)
+    repo = git.Repo.init(path)
+    origin = repo.create_remote("origin", authenticated_url)
+    origin.fetch(ref, depth=1)
+    repo.git.checkout("FETCH_HEAD")
+    return path
+
+
+def delete_ref_scratch(repository_id: str, ref: str) -> None:
+    path = ref_scratch_path(repository_id, ref)
+    if path.exists():
+        shutil.rmtree(path)
+
+
 def persist_to_archive(repository_id: str) -> None:
     path = repo_path(repository_id)
     if not path.exists():

@@ -7,6 +7,7 @@ export const createTaskSchema = {
     goal: z.string().min(1).max(2000),
     repositoryId: z.string().uuid().optional(),
     workflowKey: z.string().optional(),
+    workflowParams: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
   }),
 };
 

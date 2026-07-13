@@ -11,6 +11,7 @@ export interface TaskResponseDto {
   repositoryId: string | null;
   createdById: string;
   workflowKey: string | null;
+  workflowParams: Record<string, unknown> | null;
   goal: string;
   status: TaskStatus;
   progress: number;

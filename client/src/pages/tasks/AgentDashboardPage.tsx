@@ -23,20 +23,37 @@ export function AgentDashboardPage() {
   const [goal, setGoal] = useState("");
   const [workflowKey, setWorkflowKey] = useState("");
   const [repositoryId, setRepositoryId] = useState("");
+  const [workflowParamValues, setWorkflowParamValues] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+
+  const selectedWorkflow = workflows?.find((w) => w.key === workflowKey);
+
+  function handleWorkflowChange(key: string) {
+    setWorkflowKey(key);
+    setWorkflowParamValues({});
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
     try {
+      const workflowParams: Record<string, unknown> = {};
+      for (const param of selectedWorkflow?.params ?? []) {
+        const raw = workflowParamValues[param.key];
+        if (raw === undefined || raw === "") continue;
+        workflowParams[param.key] = param.type === "number" ? Number(raw) : raw;
+      }
+
       await createTask.mutateAsync({
         goal,
         repositoryId: repositoryId || undefined,
         workflowKey: workflowKey || undefined,
+        workflowParams: Object.keys(workflowParams).length > 0 ? workflowParams : undefined,
       });
       setGoal("");
       setWorkflowKey("");
       setRepositoryId("");
+      setWorkflowParamValues({});
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Failed to create task");
     }
@@ -65,7 +82,7 @@ export function AgentDashboardPage() {
             <label className="text-xs font-medium text-gray-700">Workflow (optional - leave blank for an ad hoc plan)</label>
             <select
               value={workflowKey}
-              onChange={(e) => setWorkflowKey(e.target.value)}
+              onChange={(e) => handleWorkflowChange(e.target.value)}
               className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
             >
               <option value="">Ad hoc (Planner decides)</option>
@@ -92,7 +109,26 @@ export function AgentDashboardPage() {
             </select>
           </div>
         </div>
-        {workflowKey && <p className="text-xs text-gray-500">{workflows?.find((w) => w.key === workflowKey)?.description}</p>}
+        {selectedWorkflow && <p className="text-xs text-gray-500">{selectedWorkflow.description}</p>}
+        {selectedWorkflow && selectedWorkflow.params.length > 0 && (
+          <div className="flex gap-3">
+            {selectedWorkflow.params.map((param) => (
+              <div key={param.key} className="flex-1">
+                <label className="text-xs font-medium text-gray-700">
+                  {param.label}
+                  {param.required && " *"}
+                </label>
+                <input
+                  type={param.type === "number" ? "number" : "text"}
+                  value={workflowParamValues[param.key] ?? ""}
+                  onChange={(e) => setWorkflowParamValues((prev) => ({ ...prev, [param.key]: e.target.value }))}
+                  required={param.required}
+                  className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                />
+              </div>
+            ))}
+          </div>
+        )}
         {formError && <p className="text-sm text-red-600">{formError}</p>}
         <button
           type="submit"

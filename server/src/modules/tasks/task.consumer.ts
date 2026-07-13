@@ -1,7 +1,14 @@
 import { logger } from "../../config/logger.ts";
 import { QUEUES } from "../../infra/rabbitmq/connection.ts";
 import { consumeQueue } from "../../infra/rabbitmq/consumer.ts";
-import { callAgentStep, callPlan, callValidate, type ChatMessagePayload, type PlanStepPayload } from "../ai/agents/agentClient.ts";
+import {
+  callAgentStep,
+  callAgentStepWithRetry,
+  callPlan,
+  callValidate,
+  type ChatMessagePayload,
+  type PlanStepPayload,
+} from "../ai/agents/agentClient.ts";
 import { toolRegistry } from "../ai/tools/registry.ts";
 import type { ToolContext } from "../ai/tools/tool.types.ts";
 import { repoRepository } from "../repo/repo.repository.ts";
@@ -21,6 +28,7 @@ async function resolvePlan(task: {
   goal: string;
   repositoryId: string | null;
   workflowKey: string | null;
+  workflowParams: unknown;
   planJson: unknown;
 }): Promise<TaskPlan> {
   if (task.planJson) {
@@ -32,7 +40,8 @@ async function resolvePlan(task: {
     if (!workflow) {
       throw new Error(`Unknown workflow: ${task.workflowKey}`);
     }
-    const plan: TaskPlan = { steps: workflow.buildPlan(), reasoning: `Fixed workflow: ${workflow.name}` };
+    const params = (task.workflowParams as Record<string, unknown> | null) ?? {};
+    const plan: TaskPlan = { steps: workflow.buildPlan(params), reasoning: `Fixed workflow: ${workflow.name}` };
     await taskRepository.savePlan(task.id, plan);
     return plan;
   }
@@ -69,17 +78,43 @@ interface ToolStepResult {
   approvalPending: boolean;
 }
 
+/** A plan step's input_template is static at plan-build time, but a step
+ * often needs a PRIOR step's actual output as an argument (e.g. "post this
+ * review as a comment"). A value of the form {"$step": "some_step_id"} is
+ * resolved here from that step's persisted output - the only form of
+ * cross-step data flow the engine supports, deliberately not a general
+ * expression language. */
+function resolveInputTemplate(template: Record<string, unknown>, outputs: Map<string, unknown>): Record<string, unknown> {
+  const resolved: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(template)) {
+    if (value && typeof value === "object" && !Array.isArray(value) && "$step" in value) {
+      const ref = value as { $step: unknown; $field?: unknown };
+      const stepId = typeof ref.$step === "string" ? ref.$step : undefined;
+      let stepOutput = stepId ? outputs.get(stepId) : undefined;
+      if (typeof ref.$field === "string" && stepOutput && typeof stepOutput === "object") {
+        stepOutput = (stepOutput as Record<string, unknown>)[ref.$field];
+      }
+      resolved[key] = typeof stepOutput === "string" ? stepOutput : JSON.stringify(stepOutput ?? null);
+    } else {
+      resolved[key] = value;
+    }
+  }
+  return resolved;
+}
+
 async function executeToolStep(
   taskId: string,
   step: PlanStepPayload,
   stepIndex: number,
   toolCtx: ToolContext,
+  outputs: Map<string, unknown>,
   existingExecutionId: string | undefined,
 ): Promise<ToolStepResult> {
   const isWrite = toolRegistry.isWriteTool(step.name);
+  const resolvedArgs = resolveInputTemplate(step.input_template, outputs);
 
   if (isWrite && !existingExecutionId) {
-    const execution = await taskRepository.createExecution(taskId, step.id, stepIndex, step.input_template);
+    const execution = await taskRepository.createExecution(taskId, step.id, stepIndex, resolvedArgs);
     await taskRepository.createLog(execution.id, "info", `Write tool "${step.name}" requires approval before executing.`);
     await taskRepository.markPendingApproval(taskId, step.id);
     return { stepId: step.id, output: null, approvalPending: true };
@@ -87,7 +122,7 @@ async function executeToolStep(
 
   const execution = existingExecutionId
     ? await taskRepository.markExecutionRunning(existingExecutionId)
-    : await taskRepository.markExecutionRunning((await taskRepository.createExecution(taskId, step.id, stepIndex, step.input_template)).id);
+    : await taskRepository.markExecutionRunning((await taskRepository.createExecution(taskId, step.id, stepIndex, resolvedArgs)).id);
 
   const startedAt = Date.now();
   const tool = toolRegistry.get(step.name);
@@ -99,13 +134,13 @@ async function executeToolStep(
   }
 
   try {
-    const result = await tool.execute(step.input_template, toolCtx);
-    await taskRepository.createToolInvocation(execution.id, step.name, step.input_template, result, "SUCCESS", Date.now() - startedAt);
+    const result = await tool.execute(resolvedArgs, toolCtx);
+    await taskRepository.createToolInvocation(execution.id, step.name, resolvedArgs, result, "SUCCESS", Date.now() - startedAt);
     await taskRepository.completeExecution(execution.id, "COMPLETED", result);
     return { stepId: step.id, output: result, approvalPending: false };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Tool execution failed";
-    await taskRepository.createToolInvocation(execution.id, step.name, step.input_template, { error: message }, "FAILED", Date.now() - startedAt);
+    await taskRepository.createToolInvocation(execution.id, step.name, resolvedArgs, { error: message }, "FAILED", Date.now() - startedAt);
     await taskRepository.completeExecution(execution.id, "FAILED", { error: message });
     throw new Error(message);
   }
@@ -169,8 +204,8 @@ async function executeAgentStep(
   const finalPrompt =
     `Overall task goal: ${goal}\n\nYour step: ${step.name}\n\nInformation gathered from prior steps:\n${priorEvidence}\n\n` +
     `Information gathered in this step:\n${stepEvidence.join("\n") || "(none)"}\n\nWrite your final result for this step in plain text.`;
-  const finalResult = await callAgentStep("task_step", [{ role: "user", content: finalPrompt }], []);
-  const finalText = finalResult.message.content ?? "";
+  const finalResult = await callAgentStepWithRetry("task_step", [{ role: "user", content: finalPrompt }], []);
+  const finalText = finalResult.message.content || "(No result was produced for this step.)";
 
   await taskRepository.createLog(execution.id, "info", `Step "${step.name}" completed.`);
   await taskRepository.completeExecution(execution.id, "COMPLETED", finalText);
@@ -196,8 +231,8 @@ async function executeValidationStep(
       `Original goal: ${goal}\n\nInformation gathered:\n${evidence.map((e) => `- ${e}`).join("\n") || "(none)"}\n\n` +
       `Previous result: ${outputText}\n\nThat result had grounding issues: ${verdict.issues.join("; ")}. Write a corrected ` +
       "result using only the gathered information.";
-    const revision = await callAgentStep("task_step", [{ role: "user", content: revisionPrompt }], []);
-    finalText = revision.message.content ?? outputText;
+    const revision = await callAgentStepWithRetry("task_step", [{ role: "user", content: revisionPrompt }], []);
+    finalText = revision.message.content || outputText;
   }
 
   await taskRepository.completeExecution(execution.id, "COMPLETED", { verdict, finalText });
@@ -244,7 +279,14 @@ export async function performTask(taskId: string): Promise<void> {
     if (allTools) {
       const results = await Promise.all(
         batch.map((step) =>
-          executeToolStep(taskId, step, plan.steps.findIndex((s) => s.id === step.id), toolCtx, pendingExecutionsByStepId.get(step.id)),
+          executeToolStep(
+            taskId,
+            step,
+            plan.steps.findIndex((s) => s.id === step.id),
+            toolCtx,
+            outputs,
+            pendingExecutionsByStepId.get(step.id),
+          ),
         ),
       );
       for (const result of results) {
@@ -260,7 +302,7 @@ export async function performTask(taskId: string): Promise<void> {
       for (const step of batch) {
         const stepIndex = plan.steps.findIndex((s) => s.id === step.id);
         if (step.type === "tool") {
-          const result = await executeToolStep(taskId, step, stepIndex, toolCtx, pendingExecutionsByStepId.get(step.id));
+          const result = await executeToolStep(taskId, step, stepIndex, toolCtx, outputs, pendingExecutionsByStepId.get(step.id));
           if (result.approvalPending) {
             approvalPendingInBatch = true;
             break;
@@ -276,6 +318,10 @@ export async function performTask(taskId: string): Promise<void> {
           doneIds.add(step.id);
         } else if (step.type === "validation") {
           lastAgentOutput = await executeValidationStep(taskId, step, stepIndex, task.goal, lastAgentOutput, evidence);
+          // The persisted execution output is {verdict, finalText} for dashboard
+          // display; a later tool step binding to this step's output (e.g. "post
+          // this as a comment") wants just the plain, possibly-corrected text.
+          outputs.set(step.id, lastAgentOutput);
           doneIds.add(step.id);
         }
       }

@@ -16,6 +16,7 @@ export const taskController = {
       req.body.goal,
       req.body.repositoryId,
       req.body.workflowKey,
+      req.body.workflowParams,
     );
     sendSuccess(res, task, 202);
   },

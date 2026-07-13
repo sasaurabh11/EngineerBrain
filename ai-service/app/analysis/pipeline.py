@@ -62,9 +62,14 @@ def _build_context(repository_id: str, repo_path: Path) -> AnalysisContext:
 
 
 async def run_analysis(request: AnalysisRequest) -> AnalysisResponse:
-    repo_path = clone_manager.ensure_repository(
-        request.repository_id, request.clone_url, request.access_token, request.default_branch
-    )
+    if request.commit_sha:
+        repo_path = clone_manager.ensure_repository_at_ref(
+            request.repository_id, request.clone_url, request.access_token, request.commit_sha
+        )
+    else:
+        repo_path = clone_manager.ensure_repository(
+            request.repository_id, request.clone_url, request.access_token, request.default_branch
+        )
     context = _build_context(request.repository_id, repo_path)
 
     findings = await run_all(context)
@@ -73,6 +78,10 @@ async def run_analysis(request: AnalysisRequest) -> AnalysisResponse:
     scores = compute_scores(context, findings)
     detected_frameworks = _detect_frameworks(context.dependency_manifests)
     architecture_summary = await generate_architecture_summary(context, findings, scores, detected_frameworks)
+
+    if request.changed_files is not None:
+        changed_set = set(request.changed_files)
+        findings = [f for f in findings if f.file_path in changed_set or changed_set & set(compute_related_files(f))]
 
     findings_payload: list[FindingPayload] = []
     for f in findings:
@@ -99,5 +108,8 @@ async def run_analysis(request: AnalysisRequest) -> AnalysisResponse:
                 related_functions=related_functions,
             )
         )
+
+    if request.commit_sha:
+        clone_manager.delete_ref_scratch(request.repository_id, request.commit_sha)
 
     return AnalysisResponse(findings=findings_payload, architecture_summary=architecture_summary, **scores)

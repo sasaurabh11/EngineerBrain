@@ -3,9 +3,24 @@ import { prisma } from "../../database/prisma.ts";
 import type { TaskPlan } from "./task.types.ts";
 
 export const taskRepository = {
-  create(organizationId: string, repositoryId: string | null, createdById: string, workflowKey: string | null, goal: string) {
+  create(
+    organizationId: string,
+    repositoryId: string | null,
+    createdById: string,
+    workflowKey: string | null,
+    goal: string,
+    workflowParams: Record<string, unknown> | null = null,
+  ) {
     return prisma.task.create({
-      data: { organizationId, repositoryId, createdById, workflowKey, goal, status: "QUEUED" },
+      data: {
+        organizationId,
+        repositoryId,
+        createdById,
+        workflowKey,
+        goal,
+        status: "QUEUED",
+        workflowParams: workflowParams as Prisma.InputJsonValue | undefined,
+      },
     });
   },
 

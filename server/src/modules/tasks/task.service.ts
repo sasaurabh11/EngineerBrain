@@ -12,6 +12,7 @@ function toTaskDto(task: {
   repositoryId: string | null;
   createdById: string;
   workflowKey: string | null;
+  workflowParams: unknown;
   goal: string;
   status: TaskResponseDto["status"];
   progress: number;
@@ -25,7 +26,7 @@ function toTaskDto(task: {
   completedAt: Date | null;
   createdAt: Date;
 }): TaskResponseDto {
-  return { ...task };
+  return { ...task, workflowParams: (task.workflowParams as Record<string, unknown> | null) ?? null };
 }
 
 export const taskService = {
@@ -35,6 +36,7 @@ export const taskService = {
     goal: string,
     repositoryId?: string,
     workflowKey?: string,
+    workflowParams?: Record<string, unknown>,
   ): Promise<TaskResponseDto> {
     if (repositoryId) {
       const repo = await repoRepository.findByOrgAndId(organizationId, repositoryId);
@@ -42,8 +44,17 @@ export const taskService = {
         throw new NotFoundError("Repository not found");
       }
     }
-    if (workflowKey && !workflowRegistry.get(workflowKey)) {
-      throw new NotFoundError(`Unknown workflow: ${workflowKey}`);
+
+    if (workflowKey) {
+      const workflow = workflowRegistry.get(workflowKey);
+      if (!workflow) {
+        throw new NotFoundError(`Unknown workflow: ${workflowKey}`);
+      }
+      for (const param of workflow.params) {
+        if (param.required && (workflowParams?.[param.key] === undefined || workflowParams?.[param.key] === "")) {
+          throw new ConflictError(`Workflow "${workflow.name}" requires a "${param.label}" parameter`);
+        }
+      }
     }
 
     const activeCount = await taskRepository.countActiveStatuses(organizationId);
@@ -51,7 +62,14 @@ export const taskService = {
       throw new ConflictError("This organization already has a task in progress");
     }
 
-    const task = await taskRepository.create(organizationId, repositoryId ?? null, createdById, workflowKey ?? null, goal);
+    const task = await taskRepository.create(
+      organizationId,
+      repositoryId ?? null,
+      createdById,
+      workflowKey ?? null,
+      goal,
+      workflowParams ?? null,
+    );
     const payload: TaskJobPayload = { taskId: task.id };
     await publishToQueue(QUEUES.TASK_EXECUTE, payload);
     return toTaskDto(task);
@@ -135,6 +153,6 @@ export const taskService = {
   },
 
   listWorkflows() {
-    return workflowRegistry.all().map((w) => ({ key: w.key, name: w.name, description: w.description }));
+    return workflowRegistry.all().map((w) => ({ key: w.key, name: w.name, description: w.description, params: w.params }));
   },
 };

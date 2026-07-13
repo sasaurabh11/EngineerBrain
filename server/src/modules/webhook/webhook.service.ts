@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { BadRequestError, UnauthorizedError } from "../../common/errors/AppError.ts";
+import { BadRequestError, ConflictError, UnauthorizedError } from "../../common/errors/AppError.ts";
 import { logger } from "../../config/logger.ts";
 import { getGitHubApp } from "../../infra/github/octokitApp.ts";
 import { QUEUES } from "../../infra/rabbitmq/connection.ts";
@@ -7,13 +7,19 @@ import { publishToQueue } from "../../infra/rabbitmq/publisher.ts";
 import { githubRepository } from "../github/github.repository.ts";
 import { repoRepository } from "../repo/repo.repository.ts";
 import { syncService } from "../sync/sync.service.ts";
+import { taskService } from "../tasks/task.service.ts";
 import { webhookRepository } from "./webhook.repository.ts";
 import type { GitHubWebhookHeaders, WebhookProcessPayload } from "./webhook.types.ts";
+
+const AUTO_REVIEW_PR_ACTIONS = new Set(["opened", "synchronize", "reopened"]);
+const AUTO_TRIAGE_ISSUE_ACTIONS = new Set(["opened"]);
 
 interface RepositoryEventPayload {
   action?: string;
   installation?: { id: number };
   repository?: { id: number };
+  pull_request?: { number: number };
+  issue?: { number: number; pull_request?: unknown };
 }
 
 interface InstallationEventPayload {
@@ -68,7 +74,7 @@ export const webhookService = {
       case "pull_request":
       case "issues":
       case "repository":
-        await handleRepositoryScopedEvent(event.installationId, event.payload as unknown as RepositoryEventPayload);
+        await handleRepositoryScopedEvent(event.eventType, event.installationId, event.payload as unknown as RepositoryEventPayload);
         break;
       case "installation":
         await handleInstallationEvent(event.payload as unknown as InstallationEventPayload);
@@ -85,6 +91,7 @@ export const webhookService = {
 };
 
 async function handleRepositoryScopedEvent(
+  eventType: string,
   rawInstallationId: string | null,
   payload: RepositoryEventPayload,
 ): Promise<void> {
@@ -103,6 +110,57 @@ async function handleRepositoryScopedEvent(
   }
 
   await syncService.enqueueSync(repo.id, "WEBHOOK", null);
+
+  if (eventType === "pull_request" && payload.pull_request && payload.action && AUTO_REVIEW_PR_ACTIONS.has(payload.action)) {
+    await autoEnqueueTask(
+      repo.id,
+      repo.organizationId,
+      repo.importedById,
+      `Automated PR review for #${payload.pull_request.number} (triggered by ${payload.action})`,
+      "pr-review",
+      { prNumber: payload.pull_request.number },
+    );
+  }
+
+  if (
+    eventType === "issues" &&
+    payload.issue &&
+    !payload.issue.pull_request &&
+    payload.action &&
+    AUTO_TRIAGE_ISSUE_ACTIONS.has(payload.action)
+  ) {
+    await autoEnqueueTask(
+      repo.id,
+      repo.organizationId,
+      repo.importedById,
+      `Automated triage for issue #${payload.issue.number}`,
+      "issue-triage",
+      { issueNumber: payload.issue.number },
+    );
+  }
+}
+
+/** Best-effort: a webhook-triggered task shouldn't fail webhook processing
+ * (and trip its retry/dead-letter machinery) just because the organization
+ * already has a task in progress - that's an expected, non-transient
+ * condition, not a bug to retry over. */
+async function autoEnqueueTask(
+  repositoryId: string,
+  organizationId: string,
+  createdById: string,
+  goal: string,
+  workflowKey: string,
+  workflowParams: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await taskService.enqueueTask(organizationId, createdById, goal, repositoryId, workflowKey, workflowParams);
+  } catch (err) {
+    if (err instanceof ConflictError) {
+      logger.info({ organizationId, workflowKey, workflowParams }, "Skipping auto-triggered task - organization already has one in progress");
+      return;
+    }
+    throw err;
+  }
 }
 
 async function handleInstallationEvent(payload: InstallationEventPayload): Promise<void> {

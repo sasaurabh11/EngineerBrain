@@ -41,8 +41,17 @@ export function useTaskExecutions(orgSlug: string | undefined, taskId: string | 
 export function useCreateTask(orgSlug: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ goal, repositoryId, workflowKey }: { goal: string; repositoryId?: string; workflowKey?: string }) =>
-      taskApi.create(orgSlug, goal, repositoryId, workflowKey),
+    mutationFn: ({
+      goal,
+      repositoryId,
+      workflowKey,
+      workflowParams,
+    }: {
+      goal: string;
+      repositoryId?: string;
+      workflowKey?: string;
+      workflowParams?: Record<string, unknown>;
+    }) => taskApi.create(orgSlug, goal, repositoryId, workflowKey, workflowParams),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks", "list", orgSlug] }),
   });
 }

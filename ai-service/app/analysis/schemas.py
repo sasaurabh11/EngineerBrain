@@ -10,10 +10,16 @@ class AnalysisFileInput(BaseModel):
 class AnalysisRequest(BaseModel):
     organization_id: str
     repository_id: str
+    # When set, analyzes this specific branch/commit instead of default_branch
+    # (e.g. a PR's head commit) - uses an isolated scratch clone, not the
+    # persisted default-branch cache.
     commit_sha: str | None = None
     clone_url: str
     access_token: str
     default_branch: str
+    # When set, the returned findings are filtered to only these files (or
+    # findings that otherwise reference one of them) - for diff-scoped review.
+    changed_files: list[str] | None = None
 
 
 class FindingPayload(BaseModel):

@@ -2,7 +2,7 @@ import { NotFoundError } from "../../common/errors/AppError.ts";
 import { indexingService } from "../indexing/indexing.service.ts";
 import { organizationRepository } from "../organization/organization.repository.ts";
 import { repoRepository } from "../repo/repo.repository.ts";
-import { callAgentStep, callValidate, type ChatMessagePayload } from "./agents/agentClient.ts";
+import { callAgentStep, callAgentStepWithRetry, callValidate, type ChatMessagePayload } from "./agents/agentClient.ts";
 import type { AiStreamEvent, ConversationDetailResponseDto, ConversationResponseDto } from "./ai.types.ts";
 import { extractCitations, type CitationCandidate } from "./citations.ts";
 import { conversationRepository } from "./conversation.repository.ts";
@@ -191,7 +191,7 @@ export const aiService = {
     let assembledText = "";
     try {
       const synthesisMessages: ChatMessagePayload[] = [{ role: "user", content: buildSynthesisPrompt(question, evidence) }];
-      const synthesis = await callAgentStep("synthesizer", synthesisMessages, [], systemContext, signal);
+      const synthesis = await callAgentStepWithRetry("synthesizer", synthesisMessages, [], systemContext, signal);
       assembledText = synthesis.message.content ?? "";
 
       // --- Critic: one bounded grounding check + revision, not persisted ---
@@ -200,8 +200,8 @@ export const aiService = {
         const revisionMessages: ChatMessagePayload[] = [
           { role: "user", content: buildRevisionPrompt(question, evidence, assembledText, verdict.issues) },
         ];
-        const revision = await callAgentStep("synthesizer", revisionMessages, [], systemContext, signal);
-        assembledText = revision.message.content ?? assembledText;
+        const revision = await callAgentStepWithRetry("synthesizer", revisionMessages, [], systemContext, signal);
+        assembledText = revision.message.content || assembledText;
       }
     } catch (err) {
       yield { type: "error", message: err instanceof Error ? err.message : "Synthesizer agent call failed" };

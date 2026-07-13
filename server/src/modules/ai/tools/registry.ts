@@ -1,4 +1,5 @@
 import { apiExplorerTool } from "./apiExplorer.tool.ts";
+import { ciStatusTool } from "./ciStatus.tool.ts";
 import { classReaderTool } from "./classReader.tool.ts";
 import { createGithubCommentTool } from "./createGithubComment.tool.ts";
 import { dependencyGraphTool } from "./dependencyGraph.tool.ts";
@@ -10,6 +11,12 @@ import { fileReaderTool } from "./fileReader.tool.ts";
 import { frameworkDetectionTool } from "./frameworkDetection.tool.ts";
 import { functionReaderTool } from "./functionReader.tool.ts";
 import { healthReportTool } from "./healthReport.tool.ts";
+import { issueDetailsTool } from "./issueDetails.tool.ts";
+import { postCheckRunTool } from "./postCheckRun.tool.ts";
+import { prDependencyDiffTool } from "./prDependencyDiff.tool.ts";
+import { prDetailsTool } from "./prDetails.tool.ts";
+import { prDiffTool } from "./prDiff.tool.ts";
+import { prStaticAnalysisTool } from "./prStaticAnalysis.tool.ts";
 import { repositoryStructureTool } from "./repositoryStructure.tool.ts";
 import { semanticSearchTool } from "./semanticSearch.tool.ts";
 import type { AiTool } from "./tool.types.ts";
@@ -33,6 +40,13 @@ const TOOLS: AiTool<any>[] = [
   triggerReanalysisTool,
   triggerReindexTool,
   createGithubCommentTool,
+  prDetailsTool,
+  prDiffTool,
+  ciStatusTool,
+  prDependencyDiffTool,
+  issueDetailsTool,
+  prStaticAnalysisTool,
+  postCheckRunTool,
 ];
 
 const toolsByName = new Map(TOOLS.map((tool) => [tool.name, tool]));

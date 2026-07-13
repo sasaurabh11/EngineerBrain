@@ -7,6 +7,7 @@ export interface Task {
   repositoryId: string | null;
   createdById: string;
   workflowKey: string | null;
+  workflowParams: Record<string, unknown> | null;
   goal: string;
   status: TaskStatus;
   progress: number;
@@ -62,10 +63,18 @@ export interface AgentExecution {
   toolInvocations: ToolInvocation[];
 }
 
+export interface WorkflowParamDescriptor {
+  key: string;
+  label: string;
+  type: "number" | "string";
+  required: boolean;
+}
+
 export interface WorkflowDescriptor {
   key: string;
   name: string;
   description: string;
+  params: WorkflowParamDescriptor[];
 }
 
 export interface PageInfo {
