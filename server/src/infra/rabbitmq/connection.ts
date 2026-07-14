@@ -11,7 +11,7 @@ export const QUEUES = {
   TASK_EXECUTE: "task.execute",
 } as const;
 
-const DEAD_LETTER_EXCHANGE = "dlx";
+export const DEAD_LETTER_EXCHANGE = "dlx";
 
 export function deadLetterQueueName(queue: string): string {
   return `${queue}.dead-letter`;
