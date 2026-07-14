@@ -13,6 +13,10 @@ export function requireOrgRole(allowedRoles?: OrgRole[]) {
         throw new NotFoundError("Organization not found");
       }
 
+      if (req.apiKeyOrganizationId && req.apiKeyOrganizationId !== organization.id) {
+        throw new ForbiddenError("This API key is not authorized for this organization");
+      }
+
       const membership = await memberRepository.findByUserAndOrg(req.dbUser!.id, organization.id);
       if (!membership) {
         throw new ForbiddenError("You are not a member of this organization");

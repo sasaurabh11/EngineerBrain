@@ -43,6 +43,21 @@ export interface CodeGraphEdgeResponseDto {
   edgeType: string;
 }
 
+export interface SymbolSourceMatch {
+  name: string;
+  kind: string;
+  filePath: string;
+  repositoryId: string;
+  startLine: number;
+  endLine: number;
+  signature: string | null;
+  docComment: string | null;
+  source: string;
+  truncated: boolean;
+}
+
+export type SymbolSourceResult = { found: false; message: string } | { found: true; matches: SymbolSourceMatch[] };
+
 export interface ApiEndpointResponseDto {
   id: string;
   method: string;

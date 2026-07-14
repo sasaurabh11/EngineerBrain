@@ -1,10 +1,13 @@
-import { CheckCircle2, ExternalLink, Loader2, XCircle } from "lucide-react";
+import { Check, CheckCircle2, Copy, ExternalLink, KeyRound, Loader2, XCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/empty-state";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useApiKeys, useCreateApiKey, useRevokeApiKey } from "../../hooks/useApiKeys";
 import { useConnectGitHub, useDisconnectGitHub, useGitHubStatus } from "../../hooks/useGithub";
 import { useDeleteOrganization, useOrganization, useUpdateOrganization } from "../../hooks/useOrganizations";
 import type { Organization } from "../../types/organization.types";
@@ -92,6 +95,130 @@ function OrganizationDetailsForm({ orgSlug, organization }: { orgSlug: string; o
           )}
         </form>
       </CardContent>
+    </Card>
+  );
+}
+
+function ApiKeysCard({ orgSlug, canManage }: { orgSlug: string; canManage: boolean }) {
+  const { data: apiKeys, isLoading } = useApiKeys(orgSlug);
+  const createApiKey = useCreateApiKey(orgSlug);
+  const revokeApiKey = useRevokeApiKey(orgSlug);
+
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function handleCreate(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    try {
+      const created = await createApiKey.mutateAsync(name);
+      setName("");
+      setRevealedKey(created.key);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create API key");
+    }
+  }
+
+  async function handleCopy() {
+    if (!revealedKey) return;
+    await navigator.clipboard.writeText(revealedKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-medium">API keys</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Used by non-interactive clients such as the EngineerBrain MCP server to authenticate as this organization. Each key is
+          scoped to this organization only.
+        </p>
+
+        {canManage && (
+          <form onSubmit={handleCreate} className="flex items-end gap-2">
+            <div className="flex-1 space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="api-key-name">
+                Name
+              </label>
+              <Input
+                id="api-key-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="e.g. Claude Desktop"
+                required
+              />
+            </div>
+            <Button type="submit" disabled={createApiKey.isPending || !name.trim()}>
+              {createApiKey.isPending && <Loader2 className="animate-spin" />}
+              Create key
+            </Button>
+          </form>
+        )}
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        {isLoading && (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" /> Loading…
+          </p>
+        )}
+
+        {!isLoading && apiKeys && apiKeys.length === 0 && <EmptyState icon={KeyRound} title="No API keys yet" />}
+
+        {apiKeys && apiKeys.length > 0 && (
+          <ul className="divide-y divide-border border-t border-border">
+            {apiKeys.map((key) => (
+              <li key={key.id} className="flex items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">{key.name}</p>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    {key.keyPrefix}… · created {new Date(key.createdAt).toLocaleDateString()}
+                    {key.lastUsedAt && ` · last used ${new Date(key.lastUsedAt).toLocaleDateString()}`}
+                  </p>
+                </div>
+                {canManage && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 text-destructive hover:text-destructive"
+                    onClick={() => revokeApiKey.mutate(key.id)}
+                    disabled={revokeApiKey.isPending}
+                  >
+                    Revoke
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+
+      <Dialog open={revealedKey !== null} onOpenChange={(open) => !open && setRevealedKey(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Copy your API key now</DialogTitle>
+            <DialogDescription>
+              This is the only time the full key is shown. Store it somewhere safe — you'll only see the prefix afterward.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2 rounded-md border border-border bg-muted p-2.5">
+            <code className="flex-1 truncate font-mono text-xs text-foreground">{revealedKey}</code>
+            <Button type="button" variant="ghost" size="icon-sm" onClick={handleCopy} aria-label="Copy API key">
+              {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button type="button" onClick={() => setRevealedKey(null)}>
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
@@ -247,6 +374,8 @@ export function OrganizationSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <ApiKeysCard orgSlug={orgSlug} canManage={canEdit} />
 
       {canDelete && (
         <Card className="border-destructive/30 bg-destructive/5">

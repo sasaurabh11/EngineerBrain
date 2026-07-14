@@ -7,6 +7,11 @@ function getParam(req: Request, name: string): string {
   return typeof value === "string" ? value : "";
 }
 
+function getQueryString(req: Request, name: string): string | undefined {
+  const value = req.query[name];
+  return typeof value === "string" ? value : undefined;
+}
+
 export const indexingController = {
   async trigger(req: Request, res: Response) {
     await indexingService.enqueueIndex(getParam(req, "repositoryId"), "MANUAL", req.dbUser!.id, false);
@@ -46,5 +51,17 @@ export const indexingController = {
   async endpoints(req: Request, res: Response) {
     const endpoints = await indexingService.listApiEndpoints(getParam(req, "repositoryId"));
     sendSuccess(res, endpoints);
+  },
+
+  async symbolSource(req: Request, res: Response) {
+    const kind = getQueryString(req, "kind") as "class" | "function" | undefined;
+    const result = await indexingService.findSymbolSource(
+      req.organization!.id,
+      getParam(req, "repositoryId"),
+      req.dbUser!.id,
+      getQueryString(req, "name")!.trim(),
+      kind,
+    );
+    sendSuccess(res, result);
   },
 };

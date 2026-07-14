@@ -5,6 +5,7 @@ import { getInstallationAccessToken } from "../../infra/github/octokitApp.ts";
 import { QUEUES } from "../../infra/rabbitmq/connection.ts";
 import { publishToQueue } from "../../infra/rabbitmq/publisher.ts";
 import { analysisService } from "../analysis/analysis.service.ts";
+import { findAndReadSymbol } from "../ai/tools/shared.ts";
 import { githubRepository } from "../github/github.repository.ts";
 import { repoRepository } from "../repo/repo.repository.ts";
 import { indexingRepository } from "./indexing.repository.ts";
@@ -16,6 +17,7 @@ import type {
   IndexJobPayload,
   RepositoryFileResponseDto,
   RepositoryIndexResponseDto,
+  SymbolSourceResult,
 } from "./indexing.types.ts";
 
 export const indexingService = {
@@ -122,6 +124,23 @@ export const indexingService = {
       docComment: s.docComment,
       parentSymbolId: s.parentSymbolId,
     }));
+  },
+
+  async findSymbolSource(
+    organizationId: string,
+    repositoryId: string,
+    userId: string,
+    name: string,
+    kind?: "class" | "function",
+  ): Promise<SymbolSourceResult> {
+    const repo = await repoRepository.findByOrgAndId(organizationId, repositoryId);
+    if (!repo) {
+      throw new NotFoundError("Repository not found");
+    }
+
+    const kinds = kind === "class" ? ["CLASS", "INTERFACE"] : kind === "function" ? ["FUNCTION", "METHOD"] : ["CLASS", "INTERFACE", "FUNCTION", "METHOD"];
+
+    return findAndReadSymbol({ organizationId, userId, repositoryId }, { name, repository_id: repositoryId }, kinds);
   },
 
   async listGraphEdges(repositoryId: string): Promise<CodeGraphEdgeResponseDto[]> {

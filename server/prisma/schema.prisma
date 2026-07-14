@@ -132,6 +132,7 @@ model User {
   connectedInstallations GitHubInstallation[] @relation("InstallationConnectedBy")
   importedRepositories   Repository[]         @relation("RepositoryImportedBy")
   conversations          Conversation[]
+  createdApiKeys         ApiKey[]
 
   @@map("users")
 }
@@ -154,6 +155,7 @@ model Organization {
   repositories       Repository[]
   conversations      Conversation[]
   tasks              Task[]
+  apiKeys            ApiKey[]
 
   @@map("organizations")
 }
@@ -189,6 +191,29 @@ model Invitation {
 
   @@unique([email, organizationId])
   @@map("invitations")
+}
+
+// Org-scoped bearer credential for non-interactive clients (MCP server, CI,
+// scripts) that can't do an interactive Clerk sign-in. Resolves to the same
+// {userId, organizationId} shape requireOrgRole already expects, so every
+// existing route's authorization logic runs unchanged - see auth.middleware.ts
+// and rbac.middleware.ts.
+model ApiKey {
+  id             String    @id @default(uuid())
+  organizationId String
+  createdById    String
+  name           String
+  keyPrefix      String
+  hashedKey      String    @unique
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation(fields: [createdById], references: [id])
+
+  @@index([organizationId])
+  @@map("api_keys")
 }
 
 model GitHubInstallation {

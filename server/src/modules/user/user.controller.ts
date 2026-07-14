@@ -3,8 +3,9 @@ import { userService } from "./user.service.ts";
 import { sendSuccess } from "../../common/response/formatResponse.ts";
 
 export const userController = {
-  getMe(req: Request, res: Response) {
-    sendSuccess(res, userService.toResponse(req.dbUser!));
+  async getMe(req: Request, res: Response) {
+    const response = await userService.toResponseWithApiKeyOrganization(req.dbUser!, req.apiKeyOrganizationId);
+    sendSuccess(res, response);
   },
 
   async updateMe(req: Request, res: Response) {

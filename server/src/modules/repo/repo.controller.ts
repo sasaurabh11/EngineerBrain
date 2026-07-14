@@ -73,4 +73,10 @@ export const repoController = {
     const issues = await repoService.listIssues(req.organization!.id, getParam(req, "repositoryId"));
     sendSuccess(res, issues);
   },
+
+  async fileContent(req: Request, res: Response) {
+    const path = getQueryString(req, "path")!.trim();
+    const file = await repoService.getFileContent(req.organization!.id, getParam(req, "repositoryId"), path);
+    sendSuccess(res, file);
+  },
 };

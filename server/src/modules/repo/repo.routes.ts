@@ -3,7 +3,7 @@ import { requireAuthenticatedUser } from "../../middleware/auth.middleware.ts";
 import { requireOrgRole } from "../../middleware/rbac.middleware.ts";
 import { validate } from "../../middleware/validate.middleware.ts";
 import { repoController } from "./repo.controller.ts";
-import { importRepositoriesSchema, listRepositoriesQuerySchema } from "./repo.validation.ts";
+import { getFileContentQuerySchema, importRepositoriesSchema, listRepositoriesQuerySchema } from "./repo.validation.ts";
 
 export const repoRouter = Router();
 
@@ -57,3 +57,11 @@ repoRouter.get(
   repoController.pullRequests,
 );
 repoRouter.get(`${base}/:repositoryId/issues`, requireAuthenticatedUser, requireOrgRole(), repoController.issues);
+
+repoRouter.get(
+  `${base}/:repositoryId/file-content`,
+  requireAuthenticatedUser,
+  requireOrgRole(),
+  validate(getFileContentQuerySchema),
+  repoController.fileContent,
+);

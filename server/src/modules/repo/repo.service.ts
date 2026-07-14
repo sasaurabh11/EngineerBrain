@@ -1,6 +1,7 @@
 import type { RepositoryVisibility } from "@prisma/client";
 import { BadRequestError, ConflictError, NotFoundError } from "../../common/errors/AppError.ts";
 import { getInstallationOctokit } from "../../infra/github/octokitApp.ts";
+import { fetchFileContent } from "../ai/tools/shared.ts";
 import { githubRepository } from "../github/github.repository.ts";
 import { indexingService } from "../indexing/indexing.service.ts";
 import { syncService } from "../sync/sync.service.ts";
@@ -10,6 +11,7 @@ import type {
   BranchResponseDto,
   CommitResponseDto,
   ContributorResponseDto,
+  FileContentResponseDto,
   IssueResponseDto,
   ListRepositoriesFilters,
   PullRequestResponseDto,
@@ -240,6 +242,16 @@ export const repoService = {
       githubCreatedAt: i.githubCreatedAt,
       closedAt: i.closedAt,
     }));
+  },
+
+  async getFileContent(organizationId: string, repositoryId: string, path: string): Promise<FileContentResponseDto> {
+    const repo = await repoRepository.findByOrgAndId(organizationId, repositoryId);
+    if (!repo) {
+      throw new NotFoundError("Repository not found");
+    }
+
+    const content = await fetchFileContent(organizationId, repo, path);
+    return { path, content };
   },
 
   async assertRepoInOrg(organizationId: string, repositoryId: string): Promise<void> {

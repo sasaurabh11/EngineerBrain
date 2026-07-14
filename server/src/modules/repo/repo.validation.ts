@@ -13,3 +13,9 @@ export const listRepositoriesQuerySchema = {
     sort: z.enum(["name", "stars", "updated", "imported"]).optional(),
   }),
 };
+
+export const getFileContentQuerySchema = {
+  query: z.object({
+    path: z.string().trim().min(1),
+  }),
+};

@@ -96,3 +96,8 @@ export interface ListRepositoriesFilters {
   language?: string;
   sort?: "name" | "stars" | "updated" | "imported";
 }
+
+export interface FileContentResponseDto {
+  path: string;
+  content: string;
+}
