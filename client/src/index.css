@@ -158,3 +158,47 @@
     @apply font-sans;
     }
 }
+
+/*
+  Custom cursor - only enabled on fine-pointer, motion-ok devices (see
+  CustomCursor.tsx). Native cursor stays for text fields via the
+  TEXT_SELECTOR override there.
+*/
+html.custom-cursor-active,
+html.custom-cursor-active * {
+  cursor: none !important;
+}
+
+.cursor-ring,
+.cursor-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform;
+}
+
+.cursor-ring {
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--primary);
+  transition: opacity 150ms ease, width 150ms ease, height 150ms ease, background-color 150ms ease;
+}
+
+.cursor-ring--active {
+  width: 40px;
+  height: 40px;
+  margin: -4px 0 0 -4px;
+  background-color: color-mix(in oklch, var(--primary), transparent 85%);
+}
+
+.cursor-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background-color: var(--primary);
+  transition: opacity 150ms ease;
+}

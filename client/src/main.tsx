@@ -3,6 +3,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.tsx'
+import { CustomCursor } from './components/custom-cursor.tsx'
 import { Toaster } from './components/ui/sonner.tsx'
 import { TooltipProvider } from './components/ui/tooltip.tsx'
 import { ClerkThemedProvider } from './lib/clerk-theme.tsx'
@@ -26,6 +27,7 @@ createRoot(document.getElementById('root')!).render(
             <TooltipProvider delayDuration={200}>
               <App />
               <Toaster position="bottom-right" />
+              <CustomCursor />
             </TooltipProvider>
           </BrowserRouter>
         </QueryClientProvider>

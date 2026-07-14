@@ -9,6 +9,7 @@ import { AiChatPage } from "./pages/ai/AiChatPage";
 import { SignInPage } from "./pages/auth/SignInPage";
 import { SignUpPage } from "./pages/auth/SignUpPage";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
+import { HomePage } from "./pages/home/HomePage";
 import { MembersPage } from "./pages/organizations/MembersPage";
 import { OrganizationSettingsPage } from "./pages/organizations/OrganizationSettingsPage";
 import { OrganizationsListPage } from "./pages/organizations/OrganizationsListPage";
@@ -39,13 +40,14 @@ function App() {
     <>
       <ClerkAxiosBridge />
       <Routes>
+        <Route path="/" element={<HomePage />} />
+
         <Route element={<AuthLayout />}>
           <Route path="/sign-in/*" element={<SignInPage />} />
           <Route path="/sign-up/*" element={<SignUpPage />} />
         </Route>
 
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<Navigate to="/organizations" replace />} />
           <Route path="/app/:orgSlug" element={<OrgRootRedirect />} />
           <Route path="/invite/:token" element={<AcceptInvitationPage />} />
 

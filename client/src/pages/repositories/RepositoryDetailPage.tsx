@@ -1,4 +1,5 @@
 import {
+  Bot,
   ExternalLink,
   GitBranch,
   GitCommitHorizontal,
@@ -9,7 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ import {
   useRepository,
   useSyncRepository,
 } from "../../hooks/useRepositories";
+import { useCreateTask } from "../../hooks/useTasks";
 import type { SyncStatus } from "../../types/repository.types";
 import { HealthDashboard } from "./components/HealthDashboard";
 
@@ -71,9 +73,12 @@ function InfoRow({ label, value }: { label: string; value: ReactNode }) {
 
 export function RepositoryDetailPage() {
   const { orgSlug = "", repositoryId = "" } = useParams();
+  const navigate = useNavigate();
   const { data: organization } = useOrganization(orgSlug);
   const { data: repo, isLoading, isError, refetch } = useRepository(orgSlug, repositoryId);
   const syncRepository = useSyncRepository(orgSlug);
+  const createTask = useCreateTask(orgSlug);
+  const [launchingTaskFor, setLaunchingTaskFor] = useState<string | null>(null);
 
   const canManage = organization?.role === "OWNER" || organization?.role === "ADMIN";
   const [tab, setTab] = useState<Tab>("overview");
@@ -87,6 +92,21 @@ export function RepositoryDetailPage() {
   const { data: contributors } = useContributors(orgSlug, tab === "contributors" ? repositoryId : undefined);
   const { data: pullRequests } = usePullRequests(orgSlug, tab === "pull-requests" ? repositoryId : undefined);
   const { data: issues } = useIssues(orgSlug, tab === "issues" ? repositoryId : undefined);
+
+  async function runWorkflow(key: string, opts: { taskKey: string; goal: string; workflowParams: Record<string, unknown> }) {
+    setLaunchingTaskFor(opts.taskKey);
+    try {
+      const task = await createTask.mutateAsync({
+        goal: opts.goal,
+        repositoryId,
+        workflowKey: key,
+        workflowParams: opts.workflowParams,
+      });
+      navigate(`/app/${orgSlug}/tasks/${task.id}`);
+    } finally {
+      setLaunchingTaskFor(null);
+    }
+  }
 
   if (isError) {
     return <ErrorState title="Failed to load repository" message="Something went wrong fetching this repository." onRetry={() => refetch()} />;
@@ -283,17 +303,41 @@ export function RepositoryDetailPage() {
         <TabsContent value="pull-requests" className="pt-4">
           <Card className="py-0">
             <ul className="divide-y divide-border">
-              {pullRequests?.map((pr) => (
-                <li key={pr.id} className="p-3.5">
-                  <a href={pr.htmlUrl} target="_blank" rel="noreferrer" className="text-sm text-foreground hover:underline">
-                    #{pr.number} {pr.title}
-                  </a>
-                  <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                    <Badge variant="secondary">{pr.state.toLowerCase()}</Badge>
-                    {pr.isDraft && "Draft ·"} {pr.authorLogin} · {pr.sourceBranch} → {pr.targetBranch}
-                  </p>
-                </li>
-              ))}
+              {pullRequests?.map((pr) => {
+                const taskKey = `pr-${pr.number}`;
+                return (
+                  <li key={pr.id} className="flex items-center justify-between gap-3 p-3.5">
+                    <div className="min-w-0">
+                      <a href={pr.htmlUrl} target="_blank" rel="noreferrer" className="text-sm text-foreground hover:underline">
+                        #{pr.number} {pr.title}
+                      </a>
+                      <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="secondary">{pr.state.toLowerCase()}</Badge>
+                        {pr.isDraft && "Draft ·"} {pr.authorLogin} · {pr.sourceBranch} → {pr.targetBranch}
+                      </p>
+                    </div>
+                    {canManage && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        disabled={launchingTaskFor === taskKey}
+                        onClick={() =>
+                          runWorkflow("pr-review", {
+                            taskKey,
+                            goal: `Review pull request #${pr.number}: ${pr.title}`,
+                            workflowParams: { prNumber: pr.number },
+                          })
+                        }
+                      >
+                        {launchingTaskFor === taskKey ? <Loader2 className="animate-spin" /> : <Bot />}
+                        Run AI review
+                      </Button>
+                    )}
+                  </li>
+                );
+              })}
               {pullRequests?.length === 0 && (
                 <li className="p-6">
                   <EmptyState icon={GitPullRequest} title="No pull requests synced yet" />
@@ -306,22 +350,46 @@ export function RepositoryDetailPage() {
         <TabsContent value="issues" className="pt-4">
           <Card className="py-0">
             <ul className="divide-y divide-border">
-              {issues?.map((issue) => (
-                <li key={issue.id} className="p-3.5">
-                  <a href={issue.htmlUrl} target="_blank" rel="noreferrer" className="text-sm text-foreground hover:underline">
-                    #{issue.number} {issue.title}
-                  </a>
-                  <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <Badge variant="secondary">{issue.state.toLowerCase()}</Badge>
-                    {issue.authorLogin}
-                    {issue.labels.map((label) => (
-                      <Badge key={label} variant="outline">
-                        {label}
-                      </Badge>
-                    ))}
-                  </p>
-                </li>
-              ))}
+              {issues?.map((issue) => {
+                const taskKey = `issue-${issue.number}`;
+                return (
+                  <li key={issue.id} className="flex items-center justify-between gap-3 p-3.5">
+                    <div className="min-w-0">
+                      <a href={issue.htmlUrl} target="_blank" rel="noreferrer" className="text-sm text-foreground hover:underline">
+                        #{issue.number} {issue.title}
+                      </a>
+                      <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="secondary">{issue.state.toLowerCase()}</Badge>
+                        {issue.authorLogin}
+                        {issue.labels.map((label) => (
+                          <Badge key={label} variant="outline">
+                            {label}
+                          </Badge>
+                        ))}
+                      </p>
+                    </div>
+                    {canManage && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        disabled={launchingTaskFor === taskKey}
+                        onClick={() =>
+                          runWorkflow("issue-triage", {
+                            taskKey,
+                            goal: `Triage issue #${issue.number}: ${issue.title}`,
+                            workflowParams: { issueNumber: issue.number },
+                          })
+                        }
+                      >
+                        {launchingTaskFor === taskKey ? <Loader2 className="animate-spin" /> : <Bot />}
+                        Run AI triage
+                      </Button>
+                    )}
+                  </li>
+                );
+              })}
               {issues?.length === 0 && (
                 <li className="p-6">
                   <EmptyState icon={GitPullRequest} title="No issues synced yet" />

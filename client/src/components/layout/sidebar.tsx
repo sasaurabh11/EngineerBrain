@@ -1,6 +1,9 @@
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { OrgSwitcher } from "./org-switcher";
 import { SidebarNav } from "./sidebar-nav";
@@ -26,6 +29,16 @@ export function Sidebar({ orgSlug, collapsed, onToggleCollapsed }: { orgSlug: st
         collapsed ? "w-14" : "w-60",
       )}
     >
+      <div className="flex items-center border-b border-sidebar-border p-2.5">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link to="/" aria-label="Go to EngineerBrain home" className="rounded-md focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+              <BrandMark collapsed={collapsed} />
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right">Home</TooltipContent>
+        </Tooltip>
+      </div>
       <div className="p-2">
         <OrgSwitcher orgSlug={orgSlug} collapsed={collapsed} />
       </div>

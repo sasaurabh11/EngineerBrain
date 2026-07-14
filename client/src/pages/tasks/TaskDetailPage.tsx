@@ -8,6 +8,7 @@ import { ErrorState } from "@/components/error-state";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
+import { ToolResultView } from "./components/ToolResultView";
 import {
   useApproveTask,
   useCancelTask,
@@ -34,6 +35,37 @@ const EXECUTION_STATUS_TONE: Record<ExecutionStatus, StatusTone> = {
   FAILED: "danger",
   SKIPPED: "neutral",
 };
+
+function ToolInvocationRow({ toolInvocation }: { toolInvocation: AgentExecution["toolInvocations"][number] }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasResult = toolInvocation.result != null;
+
+  return (
+    <li className="rounded-md border border-border">
+      <button
+        type="button"
+        onClick={() => hasResult && setExpanded((v) => !v)}
+        disabled={!hasResult}
+        className="flex w-full items-center justify-between gap-2 p-2 text-left disabled:cursor-default"
+      >
+        <span className="flex items-center gap-2 font-mono text-xs text-foreground">
+          {toolInvocation.toolName}
+          <span className="font-sans text-muted-foreground">
+            {toolInvocation.status.toLowerCase()} ({toolInvocation.durationMs}ms)
+          </span>
+        </span>
+        {hasResult && (
+          <ChevronDown className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-180")} />
+        )}
+      </button>
+      {expanded && hasResult && (
+        <div className="border-t border-border p-2.5">
+          <ToolResultView toolName={toolInvocation.toolName} result={toolInvocation.result} />
+        </div>
+      )}
+    </li>
+  );
+}
 
 function ExecutionCard({ execution, index, isLast }: { execution: AgentExecution; index: number; isLast: boolean }) {
   const [expanded, setExpanded] = useState(false);
@@ -78,11 +110,9 @@ function ExecutionCard({ execution, index, isLast }: { execution: AgentExecution
             {execution.toolInvocations.length > 0 && (
               <div>
                 <p className="mb-1 text-xs font-medium text-muted-foreground">Tool calls</p>
-                <ul className="space-y-1">
+                <ul className="space-y-1.5">
                   {execution.toolInvocations.map((t) => (
-                    <li key={t.id} className="font-mono text-xs text-muted-foreground">
-                      {t.toolName} · {t.status.toLowerCase()} ({t.durationMs}ms)
-                    </li>
+                    <ToolInvocationRow key={t.id} toolInvocation={t} />
                   ))}
                 </ul>
               </div>

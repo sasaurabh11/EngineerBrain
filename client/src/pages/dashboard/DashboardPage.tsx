@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { ScorePill } from "@/components/score-pill";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
+import { ViewAllLink } from "@/components/view-all-link";
 import { useLatestAnalysis } from "../../hooks/useAnalysis";
 import { useConversations } from "../../hooks/useAi";
 import { useMembers } from "../../hooks/useMembers";
@@ -77,9 +78,7 @@ export function DashboardPage() {
         <Card className="lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="text-sm font-medium">Repository overview</CardTitle>
-            <Button asChild variant="ghost" size="sm">
-              <Link to={`/app/${orgSlug}/repositories`}>View all</Link>
-            </Button>
+            <ViewAllLink to={`/app/${orgSlug}/repositories`} />
           </CardHeader>
           <CardContent>
             {isLoadingRepositories ? (
@@ -145,9 +144,7 @@ export function DashboardPage() {
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="text-sm font-medium">Recent agent tasks</CardTitle>
-            <Button asChild variant="ghost" size="sm">
-              <Link to={`/app/${orgSlug}/tasks`}>View all</Link>
-            </Button>
+            <ViewAllLink to={`/app/${orgSlug}/tasks`} />
           </CardHeader>
           <CardContent>
             {isLoadingTasks ? (
@@ -179,9 +176,7 @@ export function DashboardPage() {
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="text-sm font-medium">Recent conversations</CardTitle>
-            <Button asChild variant="ghost" size="sm">
-              <Link to={`/app/${orgSlug}/ai`}>View all</Link>
-            </Button>
+            <ViewAllLink to={`/app/${orgSlug}/ai`} />
           </CardHeader>
           <CardContent>
             {isLoadingConversations ? (
@@ -211,9 +206,7 @@ export function DashboardPage() {
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="text-sm font-medium">Organization members</CardTitle>
-            <Button asChild variant="ghost" size="sm">
-              <Link to={`/app/${orgSlug}/members`}>View all</Link>
-            </Button>
+            <ViewAllLink to={`/app/${orgSlug}/members`} />
           </CardHeader>
           <CardContent>
             {isLoadingMembers ? (

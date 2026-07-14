@@ -1,10 +1,12 @@
 import { UserButton } from "@clerk/clerk-react";
-import { Menu, Search } from "lucide-react";
+import { Home, Menu, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, Outlet, useParams } from "react-router-dom";
+import { BrandMark } from "@/components/brand-mark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Breadcrumbs } from "../components/layout/breadcrumbs";
 import { CommandPalette } from "../components/layout/command-palette";
 import { OrgSwitcher } from "../components/layout/org-switcher";
@@ -32,7 +34,34 @@ export function AppLayout() {
   }, []);
 
   if (!orgSlug) {
-    return <Outlet />;
+    return (
+      <div className="flex min-h-screen flex-col bg-background">
+        <header className="flex h-13 shrink-0 items-center justify-between gap-3 border-b border-border px-3 md:px-5">
+          <Link to="/">
+            <BrandMark />
+          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            {invitations && invitations.length > 0 && (
+              <Link to="/organizations">
+                <Badge variant="destructive" className="cursor-pointer">
+                  {invitations.length} invitation{invitations.length > 1 ? "s" : ""}
+                </Badge>
+              </Link>
+            )}
+            <ThemeToggle />
+            <Link to="/profile">
+              <Button variant="ghost" size="sm">
+                Profile
+              </Button>
+            </Link>
+            <UserButton />
+          </div>
+        </header>
+        <main className="flex-1 p-4 md:p-6">
+          <Outlet />
+        </main>
+      </div>
+    );
   }
 
   return (
@@ -41,8 +70,11 @@ export function AppLayout() {
 
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <SheetContent side="left" className="w-64 p-0">
-          <SheetHeader className="p-2">
+          <SheetHeader className="gap-3 border-b border-sidebar-border p-2.5">
             <SheetTitle className="sr-only">Navigation</SheetTitle>
+            <Link to="/" onClick={() => setMobileNavOpen(false)}>
+              <BrandMark />
+            </Link>
             <OrgSwitcher orgSlug={orgSlug} />
           </SheetHeader>
           <SidebarNav orgSlug={orgSlug} onNavigate={() => setMobileNavOpen(false)} />
@@ -51,10 +83,20 @@ export function AppLayout() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-13 shrink-0 items-center justify-between gap-3 border-b border-border px-3 md:px-5">
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 items-center gap-1">
             <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation">
               <Menu className="size-4" />
             </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button asChild variant="ghost" size="icon" className="hidden md:inline-flex">
+                  <Link to="/" aria-label="Go to EngineerBrain home">
+                    <Home className="size-4" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Home</TooltipContent>
+            </Tooltip>
             <Breadcrumbs orgSlug={orgSlug} />
           </div>
 
