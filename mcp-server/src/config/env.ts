@@ -6,6 +6,9 @@ const envSchema = z.object({
   ENGINEERBRAIN_API_URL: z.string().min(1).default("http://localhost:4000/api/v1"),
   MCP_TRANSPORT: z.enum(["stdio", "http"]).default("stdio"),
   ENGINEERBRAIN_API_KEY: z.string().optional(),
+  // Render (and most PaaS hosts) inject PORT and require binding to it; MCP_HTTP_PORT
+  // remains the fallback for local/manual runs where PORT isn't set.
+  PORT: z.coerce.number().optional(),
   MCP_HTTP_PORT: z.coerce.number().default(3800),
 });
 

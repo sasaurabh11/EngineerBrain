@@ -101,7 +101,8 @@ export async function startHttpTransport(): Promise<void> {
     res.json({ status: "ok", activeSessions: sessions.size });
   });
 
-  app.listen(env.MCP_HTTP_PORT, () => {
-    logger.info({ port: env.MCP_HTTP_PORT }, "MCP server listening over Streamable HTTP");
+  const port = env.PORT ?? env.MCP_HTTP_PORT;
+  app.listen(port, () => {
+    logger.info({ port }, "MCP server listening over Streamable HTTP");
   });
 }

@@ -34,6 +34,41 @@ This server authenticates with an **organization-scoped API key**, not your Cler
 
 The key only grants what the underlying REST API already allows for that org/role; this server adds no new permissions.
 
+## Using the hosted instance
+
+You don't need to install or run anything to use EngineerBrain from your AI client — a shared instance is already running the `http` transport at:
+
+```
+https://engineerbrain-mcp.onrender.com/mcp
+```
+
+All you need is your own API key (see **Authentication** above). Everyone connects to the same URL; the bearer token in each request is what scopes you to your organization.
+
+**Claude Code** — one command:
+```bash
+claude mcp add --transport http engineerbrain https://engineerbrain-mcp.onrender.com/mcp \
+  --header "Authorization: Bearer eb_live_..."
+```
+
+**Claude Desktop** — `claude_desktop_config.json` (Desktop connects to Streamable HTTP servers directly, no local process or proxy needed):
+```json
+{
+  "mcpServers": {
+    "engineerbrain": {
+      "type": "http",
+      "url": "https://engineerbrain-mcp.onrender.com/mcp",
+      "headers": { "Authorization": "Bearer eb_live_..." }
+    }
+  }
+}
+```
+
+**Cursor / any MCP client with HTTP support** — same `type`/`url`/`headers` shape, in that client's MCP config file.
+
+Note: Render's free tier spins the service down after 15 minutes of inactivity, so the first request after idle time takes a few extra seconds to cold-start — expected, not a bug.
+
+The rest of this README covers self-hosting your own instance (e.g. against a different EngineerBrain deployment, or to run the stdio transport locally).
+
 ## Installation
 
 ```bash
@@ -60,6 +95,20 @@ MCP_TRANSPORT=http npm start
 ```
 
 See `.env.example` for every environment variable.
+
+## Deploying the hosted instance
+
+This runs as a plain Node web service — on Render:
+
+- Root directory: `mcp-server`
+- Build command: `npm install && npm run build`
+- Start command: `npm start`
+- Env vars: `MCP_TRANSPORT=http`, `ENGINEERBRAIN_API_URL=https://<your-express-api-host>/api/v1`
+  (leave `ENGINEERBRAIN_API_KEY` unset — that's stdio-only)
+
+`transport/http.ts` binds to `process.env.PORT` when the platform sets one (Render, Railway, etc.), falling back to `MCP_HTTP_PORT` for manual/local runs.
+
+One instance only: `sessions` in `transport/http.ts` is an in-memory `Map`, so a session created on one instance isn't visible to another. Don't scale this past a single instance without adding a shared session store first.
 
 ## Client configuration
 
@@ -90,11 +139,12 @@ claude mcp add engineerbrain -e ENGINEERBRAIN_API_KEY=eb_live_... -e ENGINEERBRA
 
 **VS Code / Windsurf** — both support MCP servers with the same `command`/`args`/`env` concept, but the config file location and top-level key name have changed across versions. Check your installed version's MCP documentation for the current file/schema; the `command`, `args`, and `env` values above are what you need regardless of where they go.
 
-**Any client, against a remote Streamable HTTP deployment** (skip the local `command`/`args` entirely):
+**Any client, against a remote Streamable HTTP deployment** (skip the local `command`/`args` entirely — see **Using the hosted instance** above for the concrete URL and Claude Code CLI one-liner):
 ```json
 {
   "mcpServers": {
     "engineerbrain": {
+      "type": "http",
       "url": "https://mcp.your-engineerbrain-host.com/mcp",
       "headers": { "Authorization": "Bearer eb_live_..." }
     }
