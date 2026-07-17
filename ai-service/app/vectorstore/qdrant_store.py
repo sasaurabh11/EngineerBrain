@@ -8,13 +8,18 @@ _client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key 
 
 
 def ensure_collection() -> None:
-    if _client.collection_exists(COLLECTION_NAME):
-        return
+    if not _client.collection_exists(COLLECTION_NAME):
+        _client.create_collection(
+            collection_name=COLLECTION_NAME,
+            vectors_config=models.VectorParams(size=settings.embedding_dimensions, distance=models.Distance.COSINE),
+        )
 
-    _client.create_collection(
-        collection_name=COLLECTION_NAME,
-        vectors_config=models.VectorParams(size=settings.embedding_dimensions, distance=models.Distance.COSINE),
-    )
+    for field in ("repository_id", "organization_id", "file_path", "kind"):
+        _client.create_payload_index(
+            collection_name=COLLECTION_NAME,
+            field_name=field,
+            field_schema=models.PayloadSchemaType.KEYWORD,
+        )
 
 
 def upsert_chunks(points: list[dict]) -> None:
