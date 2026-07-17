@@ -14,6 +14,7 @@ import type {
   AiIndexResult,
   CodeGraphEdgeResponseDto,
   CodeSymbolResponseDto,
+  DependentEntry,
   IndexJobPayload,
   RepositoryFileResponseDto,
   RepositoryIndexResponseDto,
@@ -141,6 +142,31 @@ export const indexingService = {
     const kinds = kind === "class" ? ["CLASS", "INTERFACE"] : kind === "function" ? ["FUNCTION", "METHOD"] : ["CLASS", "INTERFACE", "FUNCTION", "METHOD"];
 
     return findAndReadSymbol({ organizationId, userId, repositoryId }, { name, repository_id: repositoryId }, kinds);
+  },
+
+  async findDependentsForFiles(repositoryId: string, filePaths: string[]): Promise<DependentEntry[]> {
+    const files = await indexingRepository.findFilesByPaths(repositoryId, filePaths);
+    if (files.length === 0) {
+      return [];
+    }
+
+    const pathByFileId = new Map(files.map((f) => [f.id, f.path]));
+    const edges = await indexingRepository.findDependents(repositoryId, files.map((f) => f.id));
+
+    const entries: DependentEntry[] = [];
+    for (const edge of edges) {
+      const changedFilePath = edge.targetFile?.path ?? edge.targetSymbol?.file.path ?? pathByFileId.get(edge.targetSymbolId ?? "");
+      if (!changedFilePath) continue;
+
+      entries.push({
+        changedFilePath,
+        dependentFilePath: edge.sourceSymbol.file.path,
+        dependentSymbolName: edge.sourceSymbol.name,
+        edgeType: edge.edgeType,
+      });
+    }
+
+    return entries;
   },
 
   async listGraphEdges(repositoryId: string): Promise<CodeGraphEdgeResponseDto[]> {

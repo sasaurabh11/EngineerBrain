@@ -1,5 +1,5 @@
 import type { AiTool, ToolContext } from "./tool.types.ts";
-import { resolveRepositoryWithOctokit, withRepositoryIdParam } from "./shared.ts";
+import { listChangedPrFiles, resolveRepositoryWithOctokit, withRepositoryIdParam } from "./shared.ts";
 
 const OSV_API_URL = "https://api.osv.dev/v1/query";
 const MANIFEST_FILENAMES = new Set(["package.json", "requirements.txt", "pom.xml"]);
@@ -128,12 +128,7 @@ export const prDependencyDiffTool: AiTool<PrDependencyDiffArgs> = {
       pull_number: args.pull_number,
     });
 
-    const changedFiles = await octokit.paginate("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", {
-      owner: repo.ownerLogin,
-      repo: repo.name,
-      pull_number: args.pull_number,
-      per_page: 100,
-    });
+    const changedFiles = await listChangedPrFiles(octokit, repo, args.pull_number);
 
     const manifestFiles = changedFiles.filter((f) => MANIFEST_FILENAMES.has(f.filename.split("/").pop() ?? ""));
     if (manifestFiles.length === 0) {

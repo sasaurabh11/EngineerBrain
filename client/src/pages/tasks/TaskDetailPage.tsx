@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
+import { MarkdownContent } from "@/components/markdown-content";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
@@ -235,7 +236,7 @@ export function TaskDetailPage() {
         <Card>
           <CardContent>
             <p className="text-sm font-medium text-foreground">Result</p>
-            <p className="mt-2 text-sm whitespace-pre-wrap text-muted-foreground">{task.resultSummary}</p>
+            <MarkdownContent content={task.resultSummary} className="mt-2" />
           </CardContent>
         </Card>
       )}

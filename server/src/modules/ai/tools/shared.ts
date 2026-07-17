@@ -23,8 +23,6 @@ export function withRepositoryIdParam(properties: Record<string, unknown>, requi
   };
 }
 
-/** Resolves the repository a tool call should operate on, enforcing that it belongs
- * to the caller's organization regardless of what repository_id the LLM supplies. */
 export async function resolveRepository(ctx: ToolContext, args: { repository_id?: string }) {
   const repositoryId = ctx.repositoryId ?? args.repository_id;
   if (!repositoryId) {
@@ -39,9 +37,6 @@ export async function resolveRepository(ctx: ToolContext, args: { repository_id?
   return repo;
 }
 
-/** Same repository resolution as resolveRepository, plus an authenticated
- * Octokit client for the repo's GitHub App installation - the common need for
- * every tool that calls the GitHub REST API directly (PRs, issues, CI checks). */
 export async function resolveRepositoryWithOctokit(ctx: ToolContext, args: { repository_id?: string }) {
   const repo = await resolveRepository(ctx, args);
   const installation = await githubRepository.findByOrganizationId(ctx.organizationId);
@@ -75,6 +70,19 @@ export async function fetchFileContent(
   });
 
   return response.content;
+}
+
+export async function listChangedPrFiles(
+  octokit: Awaited<ReturnType<typeof resolveRepositoryWithOctokit>>["octokit"],
+  repo: { ownerLogin: string; name: string },
+  pullNumber: number,
+) {
+  return octokit.paginate("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", {
+    owner: repo.ownerLogin,
+    repo: repo.name,
+    pull_number: pullNumber,
+    per_page: 100,
+  });
 }
 
 export async function findAndReadSymbol(ctx: ToolContext, args: { name: string; repository_id?: string }, kinds: string[]) {

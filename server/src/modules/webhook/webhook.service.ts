@@ -27,6 +27,16 @@ interface InstallationEventPayload {
   installation: { id: number };
 }
 
+interface CheckSuiteEventPayload {
+  action: string;
+  installation?: { id: number };
+  repository?: { id: number };
+  check_suite: {
+    conclusion: string | null;
+    pull_requests: { number: number }[];
+  };
+}
+
 export const webhookService = {
   async receiveEvent(headers: GitHubWebhookHeaders, rawBody: string): Promise<void> {
     const app = getGitHubApp();
@@ -75,6 +85,9 @@ export const webhookService = {
       case "issues":
       case "repository":
         await handleRepositoryScopedEvent(event.eventType, event.installationId, event.payload as unknown as RepositoryEventPayload);
+        break;
+      case "check_suite":
+        await handleCheckSuiteEvent(event.installationId, event.payload as unknown as CheckSuiteEventPayload);
         break;
       case "installation":
         await handleInstallationEvent(event.payload as unknown as InstallationEventPayload);
@@ -140,10 +153,64 @@ async function handleRepositoryScopedEvent(
   }
 }
 
-/** Best-effort: a webhook-triggered task shouldn't fail webhook processing
- * (and trip its retry/dead-letter machinery) just because the organization
- * already has a task in progress - that's an expected, non-transient
- * condition, not a bug to retry over. */
+
+async function handleCheckSuiteEvent(rawInstallationId: string | null, payload: CheckSuiteEventPayload): Promise<void> {
+  if (payload.action !== "completed" || !rawInstallationId || !payload.repository || payload.check_suite.pull_requests.length === 0) {
+    return;
+  }
+
+  const installation = await githubRepository.findByGithubInstallationId(BigInt(rawInstallationId));
+  if (!installation) {
+    return;
+  }
+
+  const repo = await repoRepository.findByOrgAndGithubRepoId(installation.organizationId, BigInt(payload.repository.id));
+  if (!repo) {
+    return;
+  }
+
+  for (const pullRequest of payload.check_suite.pull_requests) {
+    if (await shouldReviewAfterCiCompletion(repo.organizationId, repo.id, pullRequest.number)) {
+      await autoEnqueueTask(
+        repo.id,
+        repo.organizationId,
+        repo.importedById,
+        `Automated PR review for #${pullRequest.number} (triggered by CI completion)`,
+        "pr-review",
+        { prNumber: pullRequest.number },
+      );
+    }
+  }
+}
+
+async function shouldReviewAfterCiCompletion(organizationId: string, repositoryId: string, prNumber: number): Promise<boolean> {
+  const { items } = await taskService.listTasks(organizationId, {
+    repositoryId,
+    workflowKey: "pr-review",
+    prNumber,
+    page: 1,
+    pageSize: 1,
+  });
+  const latest = items[0];
+
+  // No review yet for this PR at all - let the normal auto-enqueue path
+  // handle it (also covers the case where "opened" was somehow missed).
+  if (!latest) {
+    return true;
+  }
+
+  if (latest.status !== "COMPLETED") {
+    return false;
+  }
+
+  const executions = await taskService.getExecutions(organizationId, latest.id);
+  const ciStatusCall = executions.flatMap((e) => e.toolInvocations).find((t) => t.toolName === "ci_status");
+  const overall = (ciStatusCall?.result as { overall?: string } | undefined)?.overall;
+
+  // The prior review already had a resolved CI status - nothing new to say.
+  return overall === "pending_or_unknown";
+}
+
 async function autoEnqueueTask(
   repositoryId: string,
   organizationId: string,

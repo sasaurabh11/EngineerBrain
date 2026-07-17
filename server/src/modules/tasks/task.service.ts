@@ -137,7 +137,15 @@ export const taskService = {
 
   async listTasks(
     organizationId: string,
-    filters: { status?: string; page: number; pageSize: number },
+    filters: {
+      status?: string;
+      repositoryId?: string;
+      workflowKey?: string;
+      prNumber?: number;
+      issueNumber?: number;
+      page: number;
+      pageSize: number;
+    },
   ): Promise<{ items: TaskResponseDto[]; totalCount: number }> {
     const { items, totalCount } = await taskRepository.list(organizationId, filters);
     return { items: items.map(toTaskDto), totalCount };

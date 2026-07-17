@@ -14,9 +14,27 @@ export function useWorkflows(orgSlug: string | undefined) {
 export function useTaskList(orgSlug: string | undefined, page = 1, status?: string) {
   return useQuery({
     queryKey: ["tasks", "list", orgSlug, page, status],
-    queryFn: () => taskApi.list(orgSlug!, page, 20, status),
+    queryFn: () => taskApi.list(orgSlug!, { page, pageSize: 20, status }),
     enabled: Boolean(orgSlug),
     refetchInterval: (query) => (query.state.data?.items.some((t) => ACTIVE_STATUSES.has(t.status)) ? 3000 : false),
+  });
+}
+
+export function useLatestWorkflowTask(
+  orgSlug: string | undefined,
+  repositoryId: string | undefined,
+  workflowKey: string,
+  target: { prNumber?: number; issueNumber?: number },
+) {
+  const { prNumber, issueNumber } = target;
+  return useQuery({
+    queryKey: ["tasks", "latest", orgSlug, repositoryId, workflowKey, prNumber, issueNumber],
+    queryFn: async () => {
+      const { items } = await taskApi.list(orgSlug!, { repositoryId, workflowKey, prNumber, issueNumber, page: 1, pageSize: 1 });
+      return items[0] ?? null;
+    },
+    enabled: Boolean(orgSlug) && Boolean(repositoryId),
+    refetchInterval: (query) => (query.state.data && ACTIVE_STATUSES.has(query.state.data.status) ? 3000 : false),
   });
 }
 

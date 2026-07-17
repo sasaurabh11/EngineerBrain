@@ -70,8 +70,26 @@ export const taskRepository = {
     return prisma.task.findUnique({ where: { id } });
   },
 
-  async list(organizationId: string, filters: { status?: string; page: number; pageSize: number }) {
-    const where = { organizationId, ...(filters.status ? { status: filters.status as never } : {}) };
+  async list(
+    organizationId: string,
+    filters: {
+      status?: string;
+      repositoryId?: string;
+      workflowKey?: string;
+      prNumber?: number;
+      issueNumber?: number;
+      page: number;
+      pageSize: number;
+    },
+  ) {
+    const where: Prisma.TaskWhereInput = {
+      organizationId,
+      ...(filters.status ? { status: filters.status as never } : {}),
+      ...(filters.repositoryId ? { repositoryId: filters.repositoryId } : {}),
+      ...(filters.workflowKey ? { workflowKey: filters.workflowKey } : {}),
+      ...(filters.prNumber !== undefined ? { workflowParams: { path: ["prNumber"], equals: filters.prNumber } } : {}),
+      ...(filters.issueNumber !== undefined ? { workflowParams: { path: ["issueNumber"], equals: filters.issueNumber } } : {}),
+    };
     const [items, totalCount] = await Promise.all([
       prisma.task.findMany({
         where,

@@ -1,13 +1,6 @@
 import type { PlanStepPayload } from "../../ai/agents/agentClient.ts";
 import { requireNumberParam } from "./params.ts";
 
-/** Code-defined plan - the five gather steps are independent tool calls (each
- * self-sufficient given just the PR number), so the "review" agent step
- * always has PR details, diff, CI status, dependency risk, and diff-scoped
- * static analysis available before it reasons about a merge verdict. The
- * final two steps post the (validated) verdict back to GitHub as a comment
- * and a native check run - both write tools, so both pause for approval
- * before actually posting (see task.consumer.ts's approval gate). */
 export function buildPrReviewPlan(params: Record<string, unknown>): PlanStepPayload[] {
   const prNumber = requireNumberParam(params, "prNumber");
 
@@ -53,17 +46,28 @@ export function buildPrReviewPlan(params: Record<string, unknown>): PlanStepPayl
       input_template: { pull_number: prNumber },
     },
     {
+      id: "get_dependency_impact",
+      type: "tool",
+      name: "pr_dependency_impact",
+      depends_on: [],
+      parallel_group: "gather",
+      input_template: { pull_number: prNumber },
+    },
+    {
       id: "review_pr",
       type: "agent",
-      name: "Review the PR's changes, CI status, dependency risk, and static-analysis findings; produce a safe-to-merge verdict with reasoning",
-      depends_on: ["get_pr_details", "get_pr_diff", "get_ci_status", "get_dependency_diff", "get_static_analysis"],
+      name:
+        "Review the PR's changes, CI status, package dependency risk, and static-analysis findings; produce a safe-to-merge verdict with reasoning. " +
+        "Also use the dependency-impact data to explicitly call out what else in the repository (which files/symbols) depends on the code being " +
+        "changed, and what could break there if this PR is merged - this is as important as the diff itself.",
+      depends_on: ["get_pr_details", "get_pr_diff", "get_ci_status", "get_dependency_diff", "get_static_analysis", "get_dependency_impact"],
       parallel_group: null,
       input_template: {},
     },
     {
       id: "validate_review",
       type: "validation",
-      name: "Validate the PR review is grounded in the gathered diff, CI, dependency, and static-analysis data",
+      name: "Validate the PR review is grounded in the gathered diff, CI, dependency (package and internal code), and static-analysis data",
       depends_on: ["review_pr"],
       parallel_group: null,
       input_template: {},
@@ -86,9 +90,6 @@ export function buildPrReviewPlan(params: Record<string, unknown>): PlanStepPayl
         head_sha: { $step: "get_pr_details", $field: "headSha" },
         title: "AI PR Review",
         summary: { $step: "validate_review" },
-        // Informational rather than a hard pass/fail gate - the review_pr
-        // step produces prose, not yet a structured mergeable verdict to
-        // derive a real success/failure conclusion from.
         conclusion: "neutral",
       },
     },

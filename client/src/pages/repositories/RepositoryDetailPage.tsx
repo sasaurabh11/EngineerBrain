@@ -1,5 +1,6 @@
 import {
   Bot,
+  ChevronDown,
   ExternalLink,
   GitBranch,
   GitCommitHorizontal,
@@ -17,8 +18,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
+import { MarkdownContent } from "@/components/markdown-content";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { useOrganization } from "../../hooks/useOrganizations";
 import { useIndexStatus, useReindex, useTriggerIndex } from "../../hooks/useIndexing";
 import {
@@ -30,8 +33,9 @@ import {
   useRepository,
   useSyncRepository,
 } from "../../hooks/useRepositories";
-import { useCreateTask } from "../../hooks/useTasks";
+import { useCreateTask, useLatestWorkflowTask } from "../../hooks/useTasks";
 import type { SyncStatus } from "../../types/repository.types";
+import type { TaskStatus } from "../../types/task.types";
 import { HealthDashboard } from "./components/HealthDashboard";
 
 const TABS = ["overview", "knowledge", "health", "branches", "commits", "contributors", "pull-requests", "issues"] as const;
@@ -61,6 +65,94 @@ const INDEX_STATUS_TONE: Record<string, StatusTone> = {
   INDEXED: "success",
   FAILED: "danger",
 };
+
+const TASK_STATUS_TONE: Record<TaskStatus, StatusTone> = {
+  QUEUED: "neutral",
+  RUNNING: "info",
+  PENDING_APPROVAL: "warning",
+  COMPLETED: "success",
+  FAILED: "danger",
+  CANCELLED: "neutral",
+};
+
+/** Wraps one PR/issue row's own header content with the latest auto- or
+ * manually-triggered analysis for it, shown expanded inline right below -
+ * so the result is visible on this page without opening the Task Center,
+ * while still linking out to the full execution trace for power users. */
+function WorkflowAnalysisRow({
+  orgSlug,
+  repositoryId,
+  workflowKey,
+  target,
+  label,
+  canManage,
+  launching,
+  onRun,
+  header,
+}: {
+  orgSlug: string;
+  repositoryId: string;
+  workflowKey: string;
+  target: { prNumber?: number; issueNumber?: number };
+  label: string;
+  canManage: boolean;
+  launching: boolean;
+  onRun: () => void;
+  header: ReactNode;
+}) {
+  const { data: task } = useLatestWorkflowTask(orgSlug, repositoryId, workflowKey, target);
+  const [expanded, setExpanded] = useState(true);
+
+  return (
+    <li className="p-3.5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">{header}</div>
+        <div className="flex shrink-0 items-center gap-2">
+          {task && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="flex items-center gap-1 rounded-full focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <StatusBadge tone={TASK_STATUS_TONE[task.status]}>
+                {label}: {task.status.replace("_", " ").toLowerCase()}
+              </StatusBadge>
+              <ChevronDown className={cn("size-3.5 text-muted-foreground transition-transform", expanded && "rotate-180")} />
+            </button>
+          )}
+          {canManage && (
+            <Button type="button" variant="outline" size="sm" disabled={launching} onClick={onRun}>
+              {launching ? <Loader2 className="animate-spin" /> : <Bot />}
+              Run AI {label.toLowerCase()}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {task && expanded && (
+        <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3.5">
+          {task.status === "COMPLETED" && task.resultSummary && <MarkdownContent content={task.resultSummary} />}
+          {task.status === "COMPLETED" && !task.resultSummary && <p className="text-sm text-muted-foreground">Completed with no summary.</p>}
+          {task.status === "FAILED" && <ErrorState title="Analysis failed" message={task.errorMessage ?? "Something went wrong."} />}
+          {(task.status === "QUEUED" || task.status === "RUNNING") && (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="size-3.5 animate-spin" /> Analyzing…
+            </p>
+          )}
+          {task.status === "PENDING_APPROVAL" && (
+            <p className="text-sm text-warning">
+              This analysis wants to post back to GitHub and is waiting for an OWNER/ADMIN to approve it.
+            </p>
+          )}
+          {task.status === "CANCELLED" && <p className="text-sm text-muted-foreground">This analysis was cancelled.</p>}
+          <Link to={`/app/${orgSlug}/tasks/${task.id}`} className="mt-3 inline-block text-xs text-primary hover:underline">
+            View full execution trace →
+          </Link>
+        </div>
+      )}
+    </li>
+  );
+}
 
 function InfoRow({ label, value }: { label: string; value: ReactNode }) {
   return (
@@ -306,36 +398,34 @@ export function RepositoryDetailPage() {
               {pullRequests?.map((pr) => {
                 const taskKey = `pr-${pr.number}`;
                 return (
-                  <li key={pr.id} className="flex items-center justify-between gap-3 p-3.5">
-                    <div className="min-w-0">
-                      <a href={pr.htmlUrl} target="_blank" rel="noreferrer" className="text-sm text-foreground hover:underline">
-                        #{pr.number} {pr.title}
-                      </a>
-                      <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <Badge variant="secondary">{pr.state.toLowerCase()}</Badge>
-                        {pr.isDraft && "Draft ·"} {pr.authorLogin} · {pr.sourceBranch} → {pr.targetBranch}
-                      </p>
-                    </div>
-                    {canManage && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0"
-                        disabled={launchingTaskFor === taskKey}
-                        onClick={() =>
-                          runWorkflow("pr-review", {
-                            taskKey,
-                            goal: `Review pull request #${pr.number}: ${pr.title}`,
-                            workflowParams: { prNumber: pr.number },
-                          })
-                        }
-                      >
-                        {launchingTaskFor === taskKey ? <Loader2 className="animate-spin" /> : <Bot />}
-                        Run AI review
-                      </Button>
-                    )}
-                  </li>
+                  <WorkflowAnalysisRow
+                    key={pr.id}
+                    orgSlug={orgSlug}
+                    repositoryId={repositoryId}
+                    workflowKey="pr-review"
+                    target={{ prNumber: pr.number }}
+                    label="Review"
+                    canManage={canManage}
+                    launching={launchingTaskFor === taskKey}
+                    onRun={() =>
+                      runWorkflow("pr-review", {
+                        taskKey,
+                        goal: `Review pull request #${pr.number}: ${pr.title}`,
+                        workflowParams: { prNumber: pr.number },
+                      })
+                    }
+                    header={
+                      <>
+                        <a href={pr.htmlUrl} target="_blank" rel="noreferrer" className="text-sm text-foreground hover:underline">
+                          #{pr.number} {pr.title}
+                        </a>
+                        <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <Badge variant="secondary">{pr.state.toLowerCase()}</Badge>
+                          {pr.isDraft && "Draft ·"} {pr.authorLogin} · {pr.sourceBranch} → {pr.targetBranch}
+                        </p>
+                      </>
+                    }
+                  />
                 );
               })}
               {pullRequests?.length === 0 && (
@@ -353,41 +443,39 @@ export function RepositoryDetailPage() {
               {issues?.map((issue) => {
                 const taskKey = `issue-${issue.number}`;
                 return (
-                  <li key={issue.id} className="flex items-center justify-between gap-3 p-3.5">
-                    <div className="min-w-0">
-                      <a href={issue.htmlUrl} target="_blank" rel="noreferrer" className="text-sm text-foreground hover:underline">
-                        #{issue.number} {issue.title}
-                      </a>
-                      <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <Badge variant="secondary">{issue.state.toLowerCase()}</Badge>
-                        {issue.authorLogin}
-                        {issue.labels.map((label) => (
-                          <Badge key={label} variant="outline">
-                            {label}
-                          </Badge>
-                        ))}
-                      </p>
-                    </div>
-                    {canManage && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0"
-                        disabled={launchingTaskFor === taskKey}
-                        onClick={() =>
-                          runWorkflow("issue-triage", {
-                            taskKey,
-                            goal: `Triage issue #${issue.number}: ${issue.title}`,
-                            workflowParams: { issueNumber: issue.number },
-                          })
-                        }
-                      >
-                        {launchingTaskFor === taskKey ? <Loader2 className="animate-spin" /> : <Bot />}
-                        Run AI triage
-                      </Button>
-                    )}
-                  </li>
+                  <WorkflowAnalysisRow
+                    key={issue.id}
+                    orgSlug={orgSlug}
+                    repositoryId={repositoryId}
+                    workflowKey="issue-triage"
+                    target={{ issueNumber: issue.number }}
+                    label="Triage"
+                    canManage={canManage}
+                    launching={launchingTaskFor === taskKey}
+                    onRun={() =>
+                      runWorkflow("issue-triage", {
+                        taskKey,
+                        goal: `Triage issue #${issue.number}: ${issue.title}`,
+                        workflowParams: { issueNumber: issue.number },
+                      })
+                    }
+                    header={
+                      <>
+                        <a href={issue.htmlUrl} target="_blank" rel="noreferrer" className="text-sm text-foreground hover:underline">
+                          #{issue.number} {issue.title}
+                        </a>
+                        <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <Badge variant="secondary">{issue.state.toLowerCase()}</Badge>
+                          {issue.authorLogin}
+                          {issue.labels.map((label) => (
+                            <Badge key={label} variant="outline">
+                              {label}
+                            </Badge>
+                          ))}
+                        </p>
+                      </>
+                    }
+                  />
                 );
               })}
               {issues?.length === 0 && (

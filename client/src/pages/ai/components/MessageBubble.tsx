@@ -1,11 +1,8 @@
 import { Bot, Check, Copy, FileCode2 } from "lucide-react";
 import { useState } from "react";
-import Markdown from "react-markdown";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import remarkGfm from "remark-gfm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MarkdownContent } from "@/components/markdown-content";
 import { cn } from "@/lib/utils";
 import type { Citation } from "../../../types/ai.types";
 
@@ -14,22 +11,6 @@ interface MessageBubbleProps {
   content: string;
   citations?: Citation[];
   onCopy?: () => void;
-}
-
-function CodeBlock(props: { className?: string; children?: React.ReactNode }) {
-  const { className, children } = props;
-  const match = /language-(\w+)/.exec(className ?? "");
-  const codeText = String(children ?? "").replace(/\n$/, "");
-
-  if (!match) {
-    return <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.85em] text-foreground">{children}</code>;
-  }
-
-  return (
-    <SyntaxHighlighter language={match[1]} style={oneDark} PreTag="div" customStyle={{ borderRadius: 8, fontSize: 13, margin: 0 }}>
-      {codeText}
-    </SyntaxHighlighter>
-  );
 }
 
 export function MessageBubble({ role, content, citations, onCopy }: MessageBubbleProps) {
@@ -51,15 +32,7 @@ export function MessageBubble({ role, content, citations, onCopy }: MessageBubbl
       )}
 
       <div className={cn("group relative max-w-2xl rounded-xl px-4 py-3", isUser ? "bg-primary text-primary-foreground" : "border border-border bg-card")}>
-        {isUser ? (
-          <p className="text-sm whitespace-pre-wrap">{content}</p>
-        ) : (
-          <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent">
-            <Markdown remarkPlugins={[remarkGfm]} components={{ code: CodeBlock }}>
-              {content}
-            </Markdown>
-          </div>
-        )}
+        {isUser ? <p className="text-sm whitespace-pre-wrap">{content}</p> : <MarkdownContent content={content} />}
 
         {!isUser && citations && citations.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border pt-2.5">

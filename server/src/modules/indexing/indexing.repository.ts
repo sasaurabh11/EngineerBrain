@@ -200,6 +200,24 @@ export const indexingRepository = {
     return prisma.repositoryFile.findMany({ where: { repositoryId }, orderBy: { path: "asc" } });
   },
 
+  findFilesByPaths(repositoryId: string, paths: string[]) {
+    return prisma.repositoryFile.findMany({ where: { repositoryId, path: { in: paths } } });
+  },
+
+  findDependents(repositoryId: string, fileIds: string[]) {
+    return prisma.codeGraphEdge.findMany({
+      where: {
+        repositoryId,
+        OR: [{ targetFileId: { in: fileIds } }, { targetSymbol: { fileId: { in: fileIds } } }],
+      },
+      include: {
+        sourceSymbol: { select: { name: true, kind: true, file: { select: { path: true } } } },
+        targetSymbol: { select: { name: true, kind: true, file: { select: { path: true } } } },
+        targetFile: { select: { path: true } },
+      },
+    });
+  },
+
   listSymbolsByKind(repositoryId: string, kinds: string[]) {
     return prisma.codeSymbol.findMany({
       where: { repositoryId, kind: { in: kinds as SymbolKind[] } },

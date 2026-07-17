@@ -14,6 +14,7 @@ import { healthReportTool } from "./healthReport.tool.ts";
 import { issueDetailsTool } from "./issueDetails.tool.ts";
 import { postCheckRunTool } from "./postCheckRun.tool.ts";
 import { prDependencyDiffTool } from "./prDependencyDiff.tool.ts";
+import { prDependencyImpactTool } from "./prDependencyImpact.tool.ts";
 import { prDetailsTool } from "./prDetails.tool.ts";
 import { prDiffTool } from "./prDiff.tool.ts";
 import { prStaticAnalysisTool } from "./prStaticAnalysis.tool.ts";
@@ -44,6 +45,7 @@ const TOOLS: AiTool<any>[] = [
   prDiffTool,
   ciStatusTool,
   prDependencyDiffTool,
+  prDependencyImpactTool,
   issueDetailsTool,
   prStaticAnalysisTool,
   postCheckRunTool,

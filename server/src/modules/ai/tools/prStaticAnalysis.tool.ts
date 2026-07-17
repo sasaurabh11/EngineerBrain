@@ -3,7 +3,7 @@ import { getInstallationAccessToken } from "../../../infra/github/octokitApp.ts"
 import type { AiAnalysisResult } from "../../analysis/analysis.types.ts";
 import { githubRepository } from "../../github/github.repository.ts";
 import type { AiTool, ToolContext } from "./tool.types.ts";
-import { resolveRepositoryWithOctokit, withRepositoryIdParam } from "./shared.ts";
+import { listChangedPrFiles, resolveRepositoryWithOctokit, withRepositoryIdParam } from "./shared.ts";
 
 const SEVERITY_RANK: Record<string, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1, INFO: 0 };
 const MAX_FINDINGS = 25;
@@ -31,12 +31,7 @@ export const prStaticAnalysisTool: AiTool<PrStaticAnalysisArgs> = {
         repo: repo.name,
         pull_number: args.pull_number,
       }),
-      octokit.paginate("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", {
-        owner: repo.ownerLogin,
-        repo: repo.name,
-        pull_number: args.pull_number,
-        per_page: 100,
-      }),
+      listChangedPrFiles(octokit, repo, args.pull_number),
       githubRepository.findByOrganizationId(ctx.organizationId),
     ]);
 

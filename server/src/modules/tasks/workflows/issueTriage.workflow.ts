@@ -1,11 +1,6 @@
 import type { PlanStepPayload } from "../../ai/agents/agentClient.ts";
 import { requireNumberParam } from "./params.ts";
 
-/** Code-defined plan - the "analyze_issue" agent step has its own internal
- * tool-calling loop (see task.consumer.ts's executeAgentStep), so it can
- * dynamically search for related code once it has read the issue itself,
- * rather than needing a fixed semantic_search step with a query nobody knows
- * in advance. */
 export function buildIssueTriagePlan(params: Record<string, unknown>): PlanStepPayload[] {
   const issueNumber = requireNumberParam(params, "issueNumber");
 
@@ -21,7 +16,10 @@ export function buildIssueTriagePlan(params: Record<string, unknown>): PlanStepP
     {
       id: "analyze_issue",
       type: "agent",
-      name: "Investigate the issue's likely root cause and affected code, then triage it (severity, priority, suggested next steps)",
+      name:
+        "Investigate the issue's likely root cause and affected code, then triage it (severity, priority, suggested next steps). " +
+        "Where the fix is clear enough to show, include a concrete suggested-fix code snippet (in the repository's own language, referencing the " +
+        "actual file/function involved) as an illustrative example - not a promise that it was applied, just a starting point for whoever fixes it.",
       depends_on: ["get_issue_details"],
       parallel_group: null,
       input_template: {},
@@ -29,7 +27,7 @@ export function buildIssueTriagePlan(params: Record<string, unknown>): PlanStepP
     {
       id: "validate_triage",
       type: "validation",
-      name: "Validate the triage is grounded in the issue and any code gathered",
+      name: "Validate the triage is grounded in the issue and any code gathered, and that any suggested-fix code snippet is plausible given the actual code read",
       depends_on: ["analyze_issue"],
       parallel_group: null,
       input_template: {},

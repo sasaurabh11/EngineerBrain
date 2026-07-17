@@ -43,6 +43,13 @@ export interface CodeGraphEdgeResponseDto {
   edgeType: string;
 }
 
+export interface DependentEntry {
+  changedFilePath: string;
+  dependentFilePath: string;
+  dependentSymbolName: string | null;
+  edgeType: string;
+}
+
 export interface SymbolSourceMatch {
   name: string;
   kind: string;
