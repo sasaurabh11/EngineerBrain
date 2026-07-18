@@ -83,10 +83,10 @@ export function MembersPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-up">
       <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Members</CardTitle>
+        <CardHeader className="border-b border-border pb-3">
+          <CardTitle className="font-mono text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Members</CardTitle>
         </CardHeader>
         <CardContent>
           {actionError && <p className="mb-3 text-sm text-destructive">{actionError}</p>}
@@ -99,7 +99,8 @@ export function MembersPage() {
           {members && members.length === 0 && <EmptyState icon={Users} title="No members yet" />}
           <ul className="divide-y divide-border">
             {members?.map((member) => (
-              <li key={member.id} className="flex items-center justify-between gap-3 py-3">
+              <li key={member.id} className="group relative flex items-center justify-between gap-3 py-3 transition-colors hover:bg-accent/50">
+                <span className="absolute top-1 bottom-1 left-0 w-0.5 scale-y-0 rounded-full bg-primary transition-transform duration-200 group-hover:scale-y-100" />
                 <div className="flex min-w-0 items-center gap-3">
                   <Avatar className="size-8">
                     <AvatarFallback>{member.user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
@@ -140,8 +141,8 @@ export function MembersPage() {
 
       {canManage && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Invite a member</CardTitle>
+          <CardHeader className="border-b border-border pb-3">
+            <CardTitle className="font-mono text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Invite a member</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <form onSubmit={handleInvite} className="flex flex-wrap items-end gap-2">

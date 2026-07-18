@@ -33,8 +33,9 @@ function RepoHealthRow({ orgSlug, repositoryId, name }: { orgSlug: string; repos
   return (
     <Link
       to={`/app/${orgSlug}/repositories/${repositoryId}`}
-      className="flex items-center justify-between gap-3 rounded-md px-2 py-2 text-sm hover:bg-accent"
+      className="group relative flex items-center justify-between gap-3 rounded-md py-2 pr-2 pl-3 text-sm transition-colors hover:bg-accent"
     >
+      <span className="absolute top-1 bottom-1 left-0 w-0.5 scale-y-0 rounded-full bg-primary transition-transform duration-200 group-hover:scale-y-100" />
       <span className="flex min-w-0 items-center gap-2">
         <FolderGit2 className="size-4 shrink-0 text-muted-foreground" />
         <span className="truncate font-medium text-foreground">{name}</span>
@@ -55,9 +56,10 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 animate-fade-up">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">{organization?.name ?? "Dashboard"}</h1>
+          <span className="font-mono text-[11px] tracking-wide text-primary uppercase">{orgSlug}</span>
+          <h1 className="mt-0.5 text-xl font-semibold text-foreground">{organization?.name ?? "Dashboard"}</h1>
           <p className="text-sm text-muted-foreground">Welcome back{me ? `, ${me.name.split(" ")[0]}` : ""}.</p>
         </div>
         <div className="flex gap-2">
@@ -74,10 +76,10 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3 animate-fade-up" style={{ animationDelay: "40ms" }}>
         <Card className="lg:col-span-2">
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium">Repository overview</CardTitle>
+          <CardHeader className="flex-row items-center justify-between border-b border-border pb-3">
+            <CardTitle className="font-mono text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Repository overview</CardTitle>
             <ViewAllLink to={`/app/${orgSlug}/repositories`} />
           </CardHeader>
           <CardContent>
@@ -109,8 +111,8 @@ export function DashboardPage() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Your account</CardTitle>
+          <CardHeader className="border-b border-border pb-3">
+            <CardTitle className="font-mono text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Your account</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {me && (
@@ -140,10 +142,10 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium">Recent agent tasks</CardTitle>
+      <div className="grid gap-4 lg:grid-cols-3 animate-fade-up" style={{ animationDelay: "80ms" }}>
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex-row items-center justify-between border-b border-border pb-3">
+            <CardTitle className="font-mono text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Recent agent tasks</CardTitle>
             <ViewAllLink to={`/app/${orgSlug}/tasks`} />
           </CardHeader>
           <CardContent>
@@ -158,10 +160,11 @@ export function DashboardPage() {
                   <Link
                     key={task.id}
                     to={`/app/${orgSlug}/tasks/${task.id}`}
-                    className="flex items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-accent"
+                    className="group relative flex items-center justify-between gap-2 rounded-md py-2 pr-2 pl-3 transition-colors hover:bg-accent"
                   >
+                    <span className="absolute top-1 bottom-1 left-0 w-0.5 scale-y-0 rounded-full bg-primary transition-transform duration-200 group-hover:scale-y-100" />
                     <span className="truncate text-sm text-foreground">{task.goal}</span>
-                    <StatusBadge tone={TASK_STATUS_TONE[task.status]} className="shrink-0">
+                    <StatusBadge tone={TASK_STATUS_TONE[task.status]} pulse={task.status === "RUNNING"} className="shrink-0">
                       {task.status.replace("_", " ").toLowerCase()}
                     </StatusBadge>
                   </Link>
@@ -173,26 +176,26 @@ export function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium">Recent conversations</CardTitle>
-            <ViewAllLink to={`/app/${orgSlug}/ai`} />
-          </CardHeader>
-          <CardContent>
+        <Card className="divide-y divide-border py-0">
+          <div className="p-(--card-spacing)">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="font-mono text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Conversations</span>
+              <ViewAllLink to={`/app/${orgSlug}/ai`} />
+            </div>
             {isLoadingConversations ? (
               <div className="space-y-2">
-                <Skeleton className="h-9 w-full" />
-                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
               </div>
             ) : conversations && conversations.length > 0 ? (
               <div className="space-y-0.5">
-                {conversations.slice(0, 5).map((c) => (
+                {conversations.slice(0, 3).map((c) => (
                   <Link
                     key={c.id}
                     to={`/app/${orgSlug}/ai/${c.id}`}
-                    className="flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent"
+                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
                   >
-                    <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
+                    <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
                     <span className="truncate text-foreground">{c.title ?? c.repositoryName ?? "New conversation"}</span>
                   </Link>
                 ))}
@@ -200,26 +203,24 @@ export function DashboardPage() {
             ) : (
               <EmptyState icon={MessageSquare} title="No conversations yet" />
             )}
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium">Organization members</CardTitle>
-            <ViewAllLink to={`/app/${orgSlug}/members`} />
-          </CardHeader>
-          <CardContent>
+          <div className="p-(--card-spacing)">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="font-mono text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Members</span>
+              <ViewAllLink to={`/app/${orgSlug}/members`} />
+            </div>
             {isLoadingMembers ? (
               <div className="space-y-2">
-                <Skeleton className="h-9 w-full" />
-                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
               </div>
             ) : members && members.length > 0 ? (
               <div className="space-y-0.5">
-                {members.slice(0, 5).map((member) => (
-                  <div key={member.id} className="flex items-center justify-between gap-2 px-2 py-2">
+                {members.slice(0, 3).map((member) => (
+                  <div key={member.id} className="flex items-center justify-between gap-2 px-2 py-1.5">
                     <span className="flex min-w-0 items-center gap-2">
-                      <Avatar className="size-6">
+                      <Avatar className="size-5">
                         <AvatarFallback className="text-[10px]">{member.user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <span className="truncate text-sm text-foreground">{member.user.name}</span>
@@ -233,7 +234,7 @@ export function DashboardPage() {
             ) : (
               <EmptyState icon={Users} title="No members yet" />
             )}
-          </CardContent>
+          </div>
         </Card>
       </div>
     </div>

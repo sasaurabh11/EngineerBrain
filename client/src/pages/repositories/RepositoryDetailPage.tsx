@@ -157,8 +157,8 @@ function WorkflowAnalysisRow({
 function InfoRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="rounded-lg border border-border bg-muted/40 p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-0.5 text-sm text-foreground">{value}</p>
+      <p className="font-mono text-[10.5px] tracking-wide text-muted-foreground uppercase">{label}</p>
+      <p className="mt-1 text-sm tabular-nums text-foreground">{value}</p>
     </div>
   );
 }
@@ -214,10 +214,10 @@ export function RepositoryDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3 animate-fade-up">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-foreground">{repo.fullName}</h1>
+            <h1 className="font-mono text-xl font-semibold text-foreground">{repo.fullName}</h1>
             <a href={repo.htmlUrl} target="_blank" rel="noreferrer" aria-label="Open on GitHub" className="text-muted-foreground hover:text-foreground">
               <ExternalLink className="size-4" />
             </a>
@@ -225,7 +225,9 @@ export function RepositoryDetailPage() {
           <p className="text-sm text-muted-foreground">{repo.description ?? "No description"}</p>
         </div>
         <div className="flex items-center gap-3">
-          <StatusBadge tone={SYNC_STATUS_TONE[repo.syncStatus]}>{repo.syncStatus.toLowerCase()}</StatusBadge>
+          <StatusBadge tone={SYNC_STATUS_TONE[repo.syncStatus]} pulse={repo.syncStatus === "SYNCING"}>
+            {repo.syncStatus.toLowerCase()}
+          </StatusBadge>
           {canManage && (
             <Button type="button" variant="outline" size="sm" onClick={() => syncRepository.mutate(repositoryId)} disabled={syncRepository.isPending}>
               <RefreshCw className={syncRepository.isPending ? "animate-spin" : undefined} />
@@ -236,9 +238,13 @@ export function RepositoryDetailPage() {
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
-        <TabsList className="w-full justify-start overflow-x-auto">
+        <TabsList variant="line" className="w-full justify-start gap-5 overflow-x-auto border-b border-border p-0">
           {TABS.map((t) => (
-            <TabsTrigger key={t} value={t}>
+            <TabsTrigger
+              key={t}
+              value={t}
+              className="rounded-none border-0 px-0.5 pb-2.5 font-mono text-[11px] tracking-wide text-muted-foreground uppercase after:bg-primary data-active:bg-transparent data-active:text-foreground"
+            >
               {TAB_LABELS[t]}
             </TabsTrigger>
           ))}
@@ -263,7 +269,7 @@ export function RepositoryDetailPage() {
               <div>
                 <p className="flex items-center gap-2 text-sm text-foreground">
                   Indexing status
-                  <StatusBadge tone={INDEX_STATUS_TONE[indexStatus?.status ?? "PENDING"]}>
+                  <StatusBadge tone={INDEX_STATUS_TONE[indexStatus?.status ?? "PENDING"]} pulse={indexStatus?.status === "INDEXING"}>
                     {(indexStatus?.status ?? "PENDING").toLowerCase()}
                   </StatusBadge>
                 </p>
@@ -322,7 +328,8 @@ export function RepositoryDetailPage() {
           <Card className="py-0">
             <ul className="divide-y divide-border">
               {branches?.map((branch) => (
-                <li key={branch.id} className="flex items-center justify-between p-3.5">
+                <li key={branch.id} className="group relative flex items-center justify-between p-3.5 transition-colors hover:bg-accent/50">
+                  <span className="absolute top-1 bottom-1 left-0 w-0.5 scale-y-0 rounded-full bg-primary transition-transform duration-200 group-hover:scale-y-100" />
                   <div className="flex items-center gap-2">
                     <GitBranch className="size-4 text-muted-foreground" />
                     <div>
@@ -349,7 +356,8 @@ export function RepositoryDetailPage() {
           <Card className="py-0">
             <ul className="divide-y divide-border">
               {commits?.map((commit) => (
-                <li key={commit.id} className="p-3.5">
+                <li key={commit.id} className="group relative p-3.5 transition-colors hover:bg-accent/50">
+                  <span className="absolute top-1 bottom-1 left-0 w-0.5 scale-y-0 rounded-full bg-primary transition-transform duration-200 group-hover:scale-y-100" />
                   <a href={commit.htmlUrl} target="_blank" rel="noreferrer" className="text-sm text-foreground hover:underline">
                     {commit.message.split("\n")[0]}
                   </a>
@@ -372,7 +380,8 @@ export function RepositoryDetailPage() {
           <Card className="py-0">
             <ul className="divide-y divide-border">
               {contributors?.map((contributor) => (
-                <li key={contributor.id} className="flex items-center gap-3 p-3.5">
+                <li key={contributor.id} className="group relative flex items-center gap-3 p-3.5 transition-colors hover:bg-accent/50">
+                  <span className="absolute top-1 bottom-1 left-0 w-0.5 scale-y-0 rounded-full bg-primary transition-transform duration-200 group-hover:scale-y-100" />
                   <Avatar className="size-8">
                     <AvatarImage src={contributor.avatarUrl ?? undefined} alt={contributor.githubLogin} />
                     <AvatarFallback>{contributor.githubLogin.slice(0, 2).toUpperCase()}</AvatarFallback>

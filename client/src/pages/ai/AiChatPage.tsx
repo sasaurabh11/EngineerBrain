@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
+import { CircuitField } from "@/components/circuit-field";
 import { cn } from "@/lib/utils";
 import { useRepositories } from "../../hooks/useRepositories";
 import {
@@ -57,11 +58,17 @@ function ConversationSidebar({
           <div
             key={c.id}
             className={cn(
-              "group flex items-center rounded-md",
+              "group relative flex items-center rounded-md",
               c.id === activeId ? "bg-accent text-accent-foreground" : "hover:bg-accent/60",
             )}
           >
-            <Link to={`/app/${orgSlug}/ai/${c.id}`} onClick={onNavigate} className="flex-1 truncate px-2.5 py-2 text-sm">
+            <span
+              className={cn(
+                "absolute top-1 bottom-1 left-0 w-0.5 rounded-full bg-primary transition-transform duration-200",
+                c.id === activeId ? "scale-y-100" : "scale-y-0",
+              )}
+            />
+            <Link to={`/app/${orgSlug}/ai/${c.id}`} onClick={onNavigate} className="flex-1 truncate px-3 py-2 text-sm">
               {c.title ?? c.repositoryName ?? "New conversation"}
             </Link>
             <Button
@@ -97,44 +104,56 @@ function NewConversationPanel({ orgSlug }: { orgSlug: string }) {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
-      <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+    <div className="relative flex flex-1 flex-col items-center justify-center gap-6 overflow-hidden p-8">
+      <CircuitField
+        density={0.9}
+        className="pointer-events-none absolute inset-0 opacity-[0.3] [mask-image:radial-gradient(ellipse_55%_50%_at_50%_45%,black,transparent_75%)] dark:opacity-[0.2]"
+      />
+      <div className="relative flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary animate-fade-up">
         <Sparkles className="size-6" />
       </div>
-      <div className="space-y-1.5 text-center">
+      <div className="relative space-y-1.5 text-center animate-fade-up" style={{ animationDelay: "40ms" }}>
         <h2 className="text-lg font-semibold text-foreground">Ask about your codebase</h2>
         <p className="max-w-md text-sm text-muted-foreground">
           Pick a repository to scope this conversation to, or leave it organization-wide to search across every indexed repository.
         </p>
       </div>
 
-      <Select value={repositoryId || "all"} onValueChange={(v) => setRepositoryId(v === "all" ? "" : v)}>
-        <SelectTrigger className="w-full max-w-72">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All repositories (organization-wide)</SelectItem>
-          {repositories?.map((r) => (
-            <SelectItem key={r.id} value={r.id}>
-              {r.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="relative animate-fade-up" style={{ animationDelay: "80ms" }}>
+        <Select value={repositoryId || "all"} onValueChange={(v) => setRepositoryId(v === "all" ? "" : v)}>
+          <SelectTrigger className="w-full max-w-72">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All repositories (organization-wide)</SelectItem>
+            {repositories?.map((r) => (
+              <SelectItem key={r.id} value={r.id}>
+                {r.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-      <Button type="button" onClick={() => handleStart()} disabled={createConversation.isPending}>
+      <Button
+        type="button"
+        onClick={() => handleStart()}
+        disabled={createConversation.isPending}
+        className="relative animate-fade-up"
+        style={{ animationDelay: "80ms" }}
+      >
         {createConversation.isPending ? <Loader2 className="animate-spin" /> : <Sparkles />}
         Start conversation
       </Button>
 
-      <div className="mt-2 grid w-full max-w-lg gap-2">
+      <div className="relative mt-2 grid w-full max-w-lg gap-2 animate-fade-up" style={{ animationDelay: "120ms" }}>
         {SUGGESTED_QUESTIONS.map((q) => (
           <button
             key={q}
             type="button"
             onClick={() => handleStart(q)}
             disabled={createConversation.isPending}
-            className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-left text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent hover:text-foreground disabled:opacity-50"
+            className="hover-lift rounded-lg border border-border bg-card px-3.5 py-2.5 text-left text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent hover:text-foreground disabled:opacity-50"
           >
             {q}
           </button>
@@ -206,7 +225,7 @@ function ActiveConversationPanel({ orgSlug, conversationId }: { orgSlug: string;
     <div className="flex flex-1 flex-col">
       <div className="flex items-center gap-2 border-b border-border px-6 py-3">
         <Bot className="size-4 text-muted-foreground" />
-        <p className="text-sm font-medium text-foreground">{conversation?.repositoryName ?? "Organization-wide"}</p>
+        <p className="font-mono text-sm font-medium text-foreground">{conversation?.repositoryName ?? "Organization-wide"}</p>
       </div>
 
       <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">

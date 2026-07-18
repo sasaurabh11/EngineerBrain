@@ -72,7 +72,10 @@ function ExecutionCard({ execution, index, isLast }: { execution: AgentExecution
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <li className="relative flex gap-4 pb-6">
+    <li
+      className="animate-fade-up relative flex gap-4 pb-6"
+      style={{ animationDelay: `${Math.min(index * 50, 300)}ms` }}
+    >
       {!isLast && <span className="absolute top-6 left-[13px] h-full w-px bg-border" aria-hidden="true" />}
       <span
         className={cn(
@@ -92,7 +95,9 @@ function ExecutionCard({ execution, index, isLast }: { execution: AgentExecution
       <div className="min-w-0 flex-1 rounded-lg border border-border bg-card">
         <button type="button" onClick={() => setExpanded((v) => !v)} className="flex w-full items-center justify-between gap-3 p-3 text-left">
           <div className="flex items-center gap-2">
-            <StatusBadge tone={EXECUTION_STATUS_TONE[execution.status]}>{execution.status.toLowerCase()}</StatusBadge>
+            <StatusBadge tone={EXECUTION_STATUS_TONE[execution.status]} pulse={execution.status === "RUNNING"}>
+              {execution.status.toLowerCase()}
+            </StatusBadge>
             <span className="font-mono text-sm text-foreground">{execution.agentKey}</span>
           </div>
           <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-180")} />
@@ -181,11 +186,15 @@ export function TaskDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3 animate-fade-up">
         <div>
           <div className="flex items-center gap-2">
-            <StatusBadge tone={TASK_STATUS_TONE[task.status]}>{task.status.replace("_", " ").toLowerCase()}</StatusBadge>
-            {task.workflowKey && <span className="text-xs text-muted-foreground">{task.workflowKey}</span>}
+            <StatusBadge tone={TASK_STATUS_TONE[task.status]} pulse={task.status === "RUNNING" || task.status === "QUEUED"}>
+              {task.status.replace("_", " ").toLowerCase()}
+            </StatusBadge>
+            {task.workflowKey && (
+              <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10.5px] text-muted-foreground">{task.workflowKey}</span>
+            )}
           </div>
           <h1 className="mt-1.5 text-lg font-semibold text-foreground">{task.goal}</h1>
           <p className="text-xs text-muted-foreground">Created {new Date(task.createdAt).toLocaleString()}</p>
@@ -222,7 +231,12 @@ export function TaskDetailPage() {
       </div>
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
 
-      {task.status === "RUNNING" && <Progress value={task.progress} />}
+      {task.status === "RUNNING" && (
+        <div>
+          <Progress value={task.progress} />
+          <p className="mt-1 text-right text-xs tabular-nums text-muted-foreground">{task.progress}%</p>
+        </div>
+      )}
 
       {task.status === "PENDING_APPROVAL" && (
         <div className="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
@@ -235,14 +249,14 @@ export function TaskDetailPage() {
       {task.status === "COMPLETED" && task.resultSummary && (
         <Card>
           <CardContent>
-            <p className="text-sm font-medium text-foreground">Result</p>
+            <p className="font-mono text-[11px] font-medium tracking-wide text-primary uppercase">Result</p>
             <MarkdownContent content={task.resultSummary} className="mt-2" />
           </CardContent>
         </Card>
       )}
 
       <div>
-        <p className="mb-3 text-sm font-medium text-foreground">Execution timeline</p>
+        <p className="mb-3 font-mono text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Execution timeline</p>
         {executions?.length === 0 && <EmptyState icon={ListTodo} title="No steps have run yet" />}
         {executions && executions.length > 0 && (
           <ul>

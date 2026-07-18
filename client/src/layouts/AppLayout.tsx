@@ -1,8 +1,10 @@
 import { UserButton } from "@clerk/clerk-react";
 import { Home, Menu, Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, Outlet, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { BrandMark } from "@/components/brand-mark";
+import { CircuitField } from "@/components/circuit-field";
+import { PageTransition } from "@/components/page-transition";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -35,8 +37,12 @@ export function AppLayout() {
 
   if (!orgSlug) {
     return (
-      <div className="flex min-h-screen flex-col bg-background">
-        <header className="flex h-13 shrink-0 items-center justify-between gap-3 border-b border-border px-3 md:px-5">
+      <div className="relative flex min-h-screen flex-col overflow-hidden bg-background">
+        <CircuitField
+          density={0.7}
+          className="pointer-events-none absolute inset-0 opacity-[0.28] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,black,transparent_75%)] dark:opacity-[0.18]"
+        />
+        <header className="relative flex h-13 shrink-0 items-center justify-between gap-3 border-b border-border px-3 md:px-5">
           <Link to="/">
             <BrandMark />
           </Link>
@@ -57,8 +63,8 @@ export function AppLayout() {
             <UserButton />
           </div>
         </header>
-        <main className="flex-1 p-4 md:p-6">
-          <Outlet />
+        <main className="relative flex-1 p-4 md:p-6">
+          <PageTransition />
         </main>
       </div>
     );
@@ -124,7 +130,7 @@ export function AppLayout() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          <Outlet />
+          <PageTransition />
         </main>
       </div>
 

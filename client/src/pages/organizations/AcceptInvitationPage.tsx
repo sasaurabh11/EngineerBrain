@@ -26,7 +26,7 @@ export function AcceptInvitationPage() {
 
   if (error) {
     return (
-      <div className="w-full max-w-md space-y-4">
+      <div className="w-full max-w-md space-y-4 animate-fade-up">
         <ErrorState title="Couldn't accept invitation" message={error} />
         <Button asChild variant="outline" className="w-full">
           <Link to="/organizations">Go to your organizations</Link>
@@ -36,7 +36,7 @@ export function AcceptInvitationPage() {
   }
 
   return (
-    <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
+    <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground animate-fade-up">
       <Loader2 className="size-5 animate-spin text-primary" />
       Accepting invitation…
     </div>

@@ -109,7 +109,7 @@ export function RepositoriesListPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between animate-fade-up">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Repositories</h1>
           <p className="text-sm text-muted-foreground">Repositories imported and analyzed in this organization.</p>
@@ -226,12 +226,13 @@ export function RepositoriesListPage() {
 
       {!isLoading && !isError && repositories && repositories.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {repositories.map((repo) => (
+          {repositories.map((repo, index) => (
             <Card
               key={repo.id}
               role="button"
               tabIndex={0}
-              className="group cursor-pointer transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="group hover-lift animate-fade-up cursor-pointer transition-colors hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              style={{ animationDelay: `${Math.min(index * 40, 320)}ms` }}
               onClick={() => navigate(`/app/${orgSlug}/repositories/${repo.id}`)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
@@ -249,7 +250,7 @@ export function RepositoriesListPage() {
                       <p className="line-clamp-2 text-xs text-muted-foreground">{repo.description ?? "No description"}</p>
                     </div>
                   </div>
-                  <StatusBadge tone={SYNC_STATUS_TONE[repo.syncStatus]} className="shrink-0">
+                  <StatusBadge tone={SYNC_STATUS_TONE[repo.syncStatus]} pulse={repo.syncStatus === "SYNCING"} className="shrink-0">
                     {repo.syncStatus.toLowerCase()}
                   </StatusBadge>
                 </div>

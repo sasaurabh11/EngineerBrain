@@ -1,5 +1,16 @@
 import { SignUp } from "@clerk/clerk-react";
+import { clerkAppearance } from "@/lib/clerk-appearance";
+import { useTheme } from "@/lib/theme";
 
 export function SignUpPage() {
-  return <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" fallbackRedirectUrl="/organizations" />;
+  const { theme } = useTheme();
+  return (
+    <SignUp
+      routing="path"
+      path="/sign-up"
+      signInUrl="/sign-in"
+      fallbackRedirectUrl="/organizations"
+      appearance={clerkAppearance(theme)}
+    />
+  );
 }

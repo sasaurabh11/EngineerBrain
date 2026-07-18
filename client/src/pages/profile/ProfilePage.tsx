@@ -59,7 +59,7 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto max-w-md space-y-6">
+    <div className="mx-auto max-w-md space-y-6 animate-fade-up">
       <h1 className="text-xl font-semibold text-foreground">Your profile</h1>
       <Card>
         <CardContent className="flex items-center gap-3">

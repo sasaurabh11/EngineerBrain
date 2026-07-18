@@ -68,14 +68,14 @@ export function AgentDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="animate-fade-up">
         <h1 className="text-xl font-semibold text-foreground">AI Task Center</h1>
         <p className="text-sm text-muted-foreground">Run autonomous multi-step engineering agents against your repositories.</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Run a new task</CardTitle>
+      <Card className="animate-fade-up" style={{ animationDelay: "40ms" }}>
+        <CardHeader className="border-b border-border pb-3">
+          <CardTitle className="font-mono text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Run a new task</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreate} className="space-y-4">
@@ -158,15 +158,20 @@ export function AgentDashboardPage() {
       )}
 
       {taskPage && taskPage.items.length > 0 && (
-        <Card className="py-0">
+        <Card className="animate-fade-up py-0" style={{ animationDelay: "80ms" }}>
           <ul className="divide-y divide-border">
             {taskPage.items.map((task) => (
-              <li key={task.id}>
-                <Link to={`/app/${orgSlug}/tasks/${task.id}`} className="flex items-center justify-between gap-3 p-4 hover:bg-accent">
+              <li key={task.id} className="group relative">
+                <span className="absolute top-1 bottom-1 left-0 w-0.5 scale-y-0 rounded-full bg-primary transition-transform duration-200 group-hover:scale-y-100" />
+                <Link to={`/app/${orgSlug}/tasks/${task.id}`} className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-accent">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <StatusBadge tone={TASK_STATUS_TONE[task.status]}>{task.status.replace("_", " ").toLowerCase()}</StatusBadge>
-                      {task.workflowKey && <span className="text-xs text-muted-foreground">{task.workflowKey}</span>}
+                      <StatusBadge tone={TASK_STATUS_TONE[task.status]} pulse={task.status === "RUNNING"}>
+                        {task.status.replace("_", " ").toLowerCase()}
+                      </StatusBadge>
+                      {task.workflowKey && (
+                        <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10.5px] text-muted-foreground">{task.workflowKey}</span>
+                      )}
                     </div>
                     <p className="mt-1 truncate text-sm text-foreground">{task.goal}</p>
                   </div>

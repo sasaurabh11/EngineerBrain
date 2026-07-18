@@ -49,8 +49,8 @@ function OrganizationDetailsForm({ orgSlug, organization }: { orgSlug: string; o
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Organization settings</CardTitle>
+      <CardHeader className="border-b border-border pb-3">
+        <CardTitle className="font-mono text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Organization settings</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSave} className="space-y-4">
@@ -130,8 +130,8 @@ function ApiKeysCard({ orgSlug, canManage }: { orgSlug: string; canManage: boole
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">API keys</CardTitle>
+      <CardHeader className="border-b border-border pb-3">
+        <CardTitle className="font-mono text-[11px] font-medium tracking-wide text-muted-foreground uppercase">API keys</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-xs text-muted-foreground">
@@ -172,7 +172,8 @@ function ApiKeysCard({ orgSlug, canManage }: { orgSlug: string; canManage: boole
         {apiKeys && apiKeys.length > 0 && (
           <ul className="divide-y divide-border border-t border-border">
             {apiKeys.map((key) => (
-              <li key={key.id} className="flex items-center justify-between gap-3 py-3">
+              <li key={key.id} className="group relative flex items-center justify-between gap-3 py-3 transition-colors hover:bg-accent/50">
+                <span className="absolute top-1 bottom-1 left-0 w-0.5 scale-y-0 rounded-full bg-primary transition-transform duration-200 group-hover:scale-y-100" />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-foreground">{key.name}</p>
                   <p className="font-mono text-xs text-muted-foreground">
@@ -289,7 +290,7 @@ export function OrganizationSettingsPage() {
   }
 
   return (
-    <div className="max-w-xl space-y-6">
+    <div className="max-w-xl space-y-6 animate-fade-up">
       {githubCallbackResult === "connected" && (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success">
           <span className="flex items-center gap-2">
@@ -314,8 +315,8 @@ export function OrganizationSettingsPage() {
       <OrganizationDetailsForm key={organization.id} orgSlug={orgSlug} organization={organization} />
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">GitHub integration</CardTitle>
+        <CardHeader className="border-b border-border pb-3">
+          <CardTitle className="font-mono text-[11px] font-medium tracking-wide text-muted-foreground uppercase">GitHub integration</CardTitle>
         </CardHeader>
         <CardContent>
           {isGithubLoading && (
@@ -379,8 +380,8 @@ export function OrganizationSettingsPage() {
 
       {canDelete && (
         <Card className="border-destructive/30 bg-destructive/5">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-destructive">Danger zone</CardTitle>
+          <CardHeader className="border-b border-border pb-3">
+            <CardTitle className="font-mono text-[11px] font-medium tracking-wide text-destructive uppercase">Danger zone</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-xs text-destructive/80">Deleting an organization removes access for all members. This cannot be undone.</p>

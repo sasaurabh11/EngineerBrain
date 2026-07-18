@@ -58,11 +58,11 @@ export function OrganizationsListPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
+    <div className="mx-auto max-w-2xl space-y-8 animate-fade-up">
       {invitations && invitations.length > 0 && (
         <Card className="border-info/30 bg-info/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+          <CardHeader className="border-b border-border pb-3">
+            <CardTitle className="flex items-center gap-2 font-mono text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
               <Mail className="size-4" /> Pending invitations
             </CardTitle>
           </CardHeader>
@@ -160,11 +160,12 @@ export function OrganizationsListPage() {
           <Card className="py-0">
             <ul className="divide-y divide-border">
               {organizations.map((org) => (
-                <li key={org.id}>
+                <li key={org.id} className="group relative">
+                  <span className="absolute top-1 bottom-1 left-0 w-0.5 scale-y-0 rounded-full bg-primary transition-transform duration-200 group-hover:scale-y-100" />
                   <button
                     type="button"
                     onClick={() => navigate(`/app/${org.slug}/dashboard`)}
-                    className="flex w-full items-center justify-between gap-3 p-4 text-left hover:bg-accent"
+                    className="flex w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-accent"
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">

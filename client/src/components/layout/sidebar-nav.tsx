@@ -11,16 +11,24 @@ function NavRow({ item, orgSlug, collapsed, onNavigate }: { item: NavItem; orgSl
       end={item.label === "Dashboard"}
       className={({ isActive }) =>
         cn(
-          "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors",
+          "group relative flex items-center gap-2.5 rounded-md py-1.5 pr-2 pl-3 text-sm font-medium transition-colors",
           collapsed && "justify-center px-0",
-          isActive
-            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-            : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+          isActive ? "text-sidebar-foreground" : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
         )
       }
     >
-      <item.icon className="size-4 shrink-0" />
-      {!collapsed && <span className="truncate">{item.label}</span>}
+      {({ isActive }) => (
+        <>
+          <span
+            className={cn(
+              "absolute top-0.5 bottom-0.5 left-0 w-0.5 rounded-full bg-primary transition-transform duration-200",
+              isActive ? "scale-y-100" : "scale-y-0 group-hover:scale-y-50",
+            )}
+          />
+          <item.icon className={cn("size-4 shrink-0", isActive && "text-primary")} />
+          {!collapsed && <span className="truncate">{item.label}</span>}
+        </>
+      )}
     </NavLink>
   );
 

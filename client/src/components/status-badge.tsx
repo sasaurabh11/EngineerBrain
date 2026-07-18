@@ -22,11 +22,13 @@ interface StatusBadgeProps {
   tone: StatusTone;
   children: React.ReactNode;
   className?: string;
+  /** Pulses the dot for states that are actively in progress (e.g. a running task). */
+  pulse?: boolean;
 }
 
 /** The shared "state as shape, not just color" pattern - a dot + label pill
  * used for Task status, Analysis/Execution status, and Finding severity alike. */
-export function StatusBadge({ tone, children, className }: StatusBadgeProps) {
+export function StatusBadge({ tone, children, className, pulse }: StatusBadgeProps) {
   return (
     <span
       className={cn(
@@ -35,7 +37,7 @@ export function StatusBadge({ tone, children, className }: StatusBadgeProps) {
         className,
       )}
     >
-      <span className={cn("size-1.5 shrink-0 rounded-full", DOT_CLASSES[tone])} aria-hidden="true" />
+      <span className={cn("size-1.5 shrink-0 rounded-full", DOT_CLASSES[tone], pulse && "animate-pulse-dot")} aria-hidden="true" />
       {children}
     </span>
   );
