@@ -34,9 +34,9 @@ export interface ListDeploymentsFilters {
   pageSize?: number;
 }
 
-function toQueryString(filters: Record<string, unknown>): string {
+function toQueryString<T extends object>(filters: T): string {
   const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(filters)) {
+  for (const [key, value] of Object.entries(filters as Record<string, unknown>)) {
     if (value !== undefined && value !== "") params.set(key, String(value));
   }
   const qs = params.toString();

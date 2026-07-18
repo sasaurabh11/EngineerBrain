@@ -83,7 +83,7 @@ export function CircuitField({ className, density = 1 }: { className?: string; d
     }
 
     function resize() {
-      if (!canvas) return;
+      if (!canvas || !ctx) return;
       const rect = canvas.parentElement?.getBoundingClientRect();
       width = rect?.width ?? window.innerWidth;
       height = rect?.height ?? window.innerHeight;
@@ -96,7 +96,7 @@ export function CircuitField({ className, density = 1 }: { className?: string; d
     }
 
     function draw() {
-      if (!ctx) return;
+      if (!canvas || !ctx) return;
       ctx.clearRect(0, 0, width, height);
       const style = getComputedStyle(canvas);
       const primary = style.getPropertyValue("--primary").trim() || "#2ec4b6";
