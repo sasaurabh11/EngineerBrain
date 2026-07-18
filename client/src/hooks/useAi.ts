@@ -56,6 +56,7 @@ export function useSendMessage(orgSlug: string, conversationId: string | undefin
   const [activeTools, setActiveTools] = useState<ActiveToolCall[]>([]);
   const [citations, setCitations] = useState<Citation[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | undefined>(undefined);
   const abortRef = useRef<AbortController | null>(null);
 
   const send = useCallback(
@@ -67,6 +68,7 @@ export function useSendMessage(orgSlug: string, conversationId: string | undefin
       setActiveTools([]);
       setCitations([]);
       setError(null);
+      setErrorCode(undefined);
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -83,6 +85,7 @@ export function useSendMessage(orgSlug: string, conversationId: string | undefin
             );
           } else if (event.type === "error") {
             setError(event.message);
+            setErrorCode(event.code);
           } else if (event.type === "done") {
             setCitations(event.citations);
           }
@@ -104,5 +107,5 @@ export function useSendMessage(orgSlug: string, conversationId: string | undefin
     abortRef.current?.abort();
   }, []);
 
-  return { send, cancel, isStreaming, streamingText, activeTools, citations, error };
+  return { send, cancel, isStreaming, streamingText, activeTools, citations, error, errorCode };
 }

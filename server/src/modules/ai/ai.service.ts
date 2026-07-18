@@ -1,4 +1,4 @@
-import { NotFoundError } from "../../common/errors/AppError.ts";
+import { AppError, NotFoundError } from "../../common/errors/AppError.ts";
 import type { AiProviderSelection } from "../../infra/aiService/providerConfig.ts";
 import { indexingService } from "../indexing/indexing.service.ts";
 import { organizationRepository } from "../organization/organization.repository.ts";
@@ -150,7 +150,11 @@ export const aiService = {
       try {
         step = await callAgentStep("retriever", messages, tools, systemContext, signal, providerConfig);
       } catch (err) {
-        yield { type: "error", message: err instanceof Error ? err.message : "Retriever agent call failed" };
+        yield {
+          type: "error",
+          message: err instanceof Error ? err.message : "Retriever agent call failed",
+          code: err instanceof AppError ? err.code : undefined,
+        };
         break;
       }
 
@@ -206,7 +210,11 @@ export const aiService = {
         assembledText = revision.message.content || assembledText;
       }
     } catch (err) {
-      yield { type: "error", message: err instanceof Error ? err.message : "Synthesizer agent call failed" };
+      yield {
+        type: "error",
+        message: err instanceof Error ? err.message : "Synthesizer agent call failed",
+        code: err instanceof AppError ? err.code : undefined,
+      };
     }
 
     yield { type: "text-delta", text: assembledText };

@@ -28,6 +28,10 @@ const SUGGESTED_QUESTIONS = [
   "Where is the main entry point of this service?",
 ];
 
+// Error codes where the AI service is degraded for a reason a user can fix
+// themselves - by adding their own API key in profile settings.
+const AI_PROVIDER_ERROR_CODES = new Set(["rate_limited", "not_configured", "auth_error"]);
+
 function ConversationSidebar({
   orgSlug,
   activeId,
@@ -180,7 +184,7 @@ function ToolCallChip({ name, status }: { name: string; status: "running" | "SUC
 
 function ActiveConversationPanel({ orgSlug, conversationId }: { orgSlug: string; conversationId: string }) {
   const { data: conversation, isLoading, isError, refetch } = useConversation(orgSlug, conversationId);
-  const { send, cancel, isStreaming, streamingText, activeTools, citations, error } = useSendMessage(orgSlug, conversationId);
+  const { send, cancel, isStreaming, streamingText, activeTools, citations, error, errorCode } = useSendMessage(orgSlug, conversationId);
   const [searchParams] = useSearchParams();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -282,7 +286,17 @@ function ActiveConversationPanel({ orgSlug, conversationId }: { orgSlug: string;
         )}
 
         {error && (
-          <ErrorState message={error} onRetry={() => send(input)} />
+          <ErrorState
+            message={error}
+            onRetry={() => send(input)}
+            action={
+              AI_PROVIDER_ERROR_CODES.has(errorCode ?? "") && (
+                <Button asChild type="button" variant="outline" size="sm">
+                  <Link to="/profile">Go to profile settings</Link>
+                </Button>
+              )
+            }
+          />
         )}
 
         <div ref={scrollRef} />

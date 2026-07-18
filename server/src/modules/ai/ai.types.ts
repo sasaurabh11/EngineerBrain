@@ -40,4 +40,4 @@ export type AiStreamEvent =
   | { type: "tool-call"; name: string; args: Record<string, unknown> }
   | { type: "tool-result"; name: string; status: "SUCCESS" | "FAILED" }
   | { type: "done"; messageId: string; citations: CitationCandidate[] }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string; code?: string };

@@ -36,8 +36,22 @@ export async function callAiService<T>(path: string, options: AiServiceRequestOp
     });
 
     if (!response.ok) {
-      const errorBody = await response.text();
-      throw new ServiceUnavailableError(`AI service request failed (${response.status}): ${errorBody}`);
+      const rawBody = await response.text();
+      // ai-service returns structured {"detail": {"code", "message"}} for known
+      // provider errors (rate limits, missing keys) - see app/core/errors.py.
+      // Fall back to the raw body for anything else (framework error pages, etc).
+      let message = rawBody || `AI service request failed (${response.status})`;
+      let code: string | undefined;
+      try {
+        const detail = (JSON.parse(rawBody) as { detail?: unknown }).detail;
+        if (detail && typeof detail === "object" && "message" in detail && typeof (detail as { message: unknown }).message === "string") {
+          message = (detail as { code?: string; message: string }).message;
+          code = (detail as { code?: string }).code;
+        }
+      } catch {
+        // not JSON - keep the raw text as the message
+      }
+      throw new ServiceUnavailableError(message, code);
     }
 
     return (await response.json()) as T;

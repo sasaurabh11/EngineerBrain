@@ -71,7 +71,8 @@ export const aiController = {
       }
     } catch (err) {
       const message = err instanceof AppError ? err.message : "Internal server error";
-      sendEvent({ type: "error", message });
+      const code = err instanceof AppError ? err.code : undefined;
+      sendEvent({ type: "error", message, code });
     } finally {
       res.end();
     }
