@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { AppError, NotFoundError } from "../../common/errors/AppError.ts";
 import { sendSuccess } from "../../common/response/formatResponse.ts";
+import { resolveAiProviderConfig } from "../../infra/aiService/providerConfig.ts";
 import { aiService } from "./ai.service.ts";
 import { conversationRepository } from "./conversation.repository.ts";
 import { toolRegistry } from "./tools/registry.ts";
@@ -64,6 +65,7 @@ export const aiController = {
         conversationId,
         req.body.message,
         abortController.signal,
+        resolveAiProviderConfig(req.dbUser!),
       )) {
         sendEvent(event);
       }

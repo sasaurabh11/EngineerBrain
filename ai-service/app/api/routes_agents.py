@@ -14,18 +14,18 @@ router = APIRouter(prefix="/internal/agents", dependencies=[Depends(verify_inter
 async def agent_step(request: AgentStepRequest) -> AgentStepResponse:
     history = to_langchain_messages(request.messages)
     tools = [t.model_dump() for t in request.tools]
-    response = await run_reasoning_step(request.role, history, tools, request.system_context)
+    response = await run_reasoning_step(request.role, history, tools, request.system_context, request.provider, request.api_key)
     payload = from_ai_message(response)
     return AgentStepResponse(message=payload, done=not bool(payload.tool_calls))
 
 
 @router.post("/plan", response_model=PlanResponse)
 async def plan(request: PlanRequest) -> PlanResponse:
-    draft, revised = await run_planner(request.goal, request.repository_context, request.available_tools)
+    draft, revised = await run_planner(request.goal, request.repository_context, request.available_tools, request.provider, request.api_key)
     return PlanResponse(steps=draft.steps, reasoning=draft.reasoning, revised=revised)
 
 
 @router.post("/validate", response_model=ValidateResponse)
 async def validate(request: ValidateRequest) -> ValidateResponse:
-    verdict = await run_critic(request.output, request.evidence)
+    verdict = await run_critic(request.output, request.evidence, request.provider, request.api_key)
     return ValidateResponse(passed=verdict.passed, confidence=verdict.confidence, issues=verdict.issues)

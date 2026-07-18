@@ -1,3 +1,4 @@
+import { DEFAULT_AI_PROVIDER_CONFIG } from "../../../infra/aiService/providerConfig.ts";
 import { productionService } from "../../production/production.service.ts";
 import type { AiTool, ToolContext } from "./tool.types.ts";
 
@@ -17,6 +18,6 @@ export const generatePostmortemTool: AiTool<Args> = {
     required: ["incident_id"],
   },
   async execute(args, ctx: ToolContext) {
-    return productionService.generatePostmortem(ctx.organizationId, args.incident_id);
+    return productionService.generatePostmortem(ctx.organizationId, args.incident_id, ctx.providerConfig ?? DEFAULT_AI_PROVIDER_CONFIG);
   },
 };

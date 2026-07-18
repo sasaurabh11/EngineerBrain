@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     embedding_dimensions: int = 768
     gemini_chat_model: str = "gemini-flash-latest"
 
+    groq_api_key: str | None = None
+    groq_chat_model: str = "openai/gpt-oss-120b"
+
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: str | None = None
 

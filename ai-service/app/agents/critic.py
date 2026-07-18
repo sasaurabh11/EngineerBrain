@@ -30,8 +30,8 @@ _CRITIC_PROMPT = (
 )
 
 
-def build_critic_graph():
-    structured_llm = get_chat_model(temperature=0).with_structured_output(Verdict)
+def build_critic_graph(provider: str = "gemini", api_key: str | None = None):
+    structured_llm = get_chat_model(temperature=0, provider=provider, api_key=api_key).with_structured_output(Verdict)
 
     def assess(state: CriticState) -> dict:
         evidence_text = "\n".join(f"- {e}" for e in state["evidence"]) or "(no evidence provided)"
@@ -46,7 +46,7 @@ def build_critic_graph():
     return graph.compile()
 
 
-async def run_critic(output: str, evidence: list[str]) -> Verdict:
-    graph = build_critic_graph()
+async def run_critic(output: str, evidence: list[str], provider: str = "gemini", api_key: str | None = None) -> Verdict:
+    graph = build_critic_graph(provider, api_key)
     result = await graph.ainvoke({"output": output, "evidence": evidence, "verdict": None})
     return result["verdict"]

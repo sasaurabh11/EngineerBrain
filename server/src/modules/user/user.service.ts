@@ -1,10 +1,11 @@
 import { clerkClient } from "@clerk/express";
 import type { User } from "@prisma/client";
 import { UnauthorizedError } from "../../common/errors/AppError.ts";
+import { encryptSecret } from "../../infra/crypto/secretBox.ts";
 import { memberRepository } from "../member/member.repository.ts";
 import { organizationRepository } from "../organization/organization.repository.ts";
 import { userRepository } from "./user.repository.ts";
-import type { UserResponseDto } from "./user.types.ts";
+import type { UpdateAiSettingsInput, UserResponseDto } from "./user.types.ts";
 
 export const userService = {
   async getOrCreateByClerkId(clerkId: string): Promise<User> {
@@ -31,6 +32,20 @@ export const userService = {
     return userRepository.updateName(userId, name);
   },
 
+  updateAiSettings(userId: string, input: UpdateAiSettingsInput): Promise<User> {
+    const data: { aiProvider?: "GEMINI" | "GROQ"; encryptedGeminiKey?: string | null; encryptedGroqKey?: string | null } = {};
+    if (input.provider !== undefined) {
+      data.aiProvider = input.provider;
+    }
+    if (input.geminiApiKey !== undefined) {
+      data.encryptedGeminiKey = input.geminiApiKey === null ? null : encryptSecret(input.geminiApiKey);
+    }
+    if (input.groqApiKey !== undefined) {
+      data.encryptedGroqKey = input.groqApiKey === null ? null : encryptSecret(input.groqApiKey);
+    }
+    return userRepository.updateAiSettings(userId, data);
+  },
+
   toResponse(user: User): UserResponseDto {
     return {
       id: user.id,
@@ -39,6 +54,9 @@ export const userService = {
       profileImage: user.profileImage,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      aiProvider: user.aiProvider,
+      hasGeminiKey: Boolean(user.encryptedGeminiKey),
+      hasGroqKey: Boolean(user.encryptedGroqKey),
     };
   },
 

@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -20,6 +22,8 @@ class AnalysisRequest(BaseModel):
     # When set, the returned findings are filtered to only these files (or
     # findings that otherwise reference one of them) - for diff-scoped review.
     changed_files: list[str] | None = None
+    provider: Literal["gemini", "groq"] = "gemini"
+    api_key: str | None = None
 
 
 class FindingPayload(BaseModel):

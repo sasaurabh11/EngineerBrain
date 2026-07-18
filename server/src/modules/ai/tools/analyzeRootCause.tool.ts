@@ -1,4 +1,5 @@
 import { NotFoundError } from "../../../common/errors/AppError.ts";
+import { DEFAULT_AI_PROVIDER_CONFIG } from "../../../infra/aiService/providerConfig.ts";
 import { callAgentStepWithRetry } from "../agents/agentClient.ts";
 import { productionRepository } from "../../production/production.repository.ts";
 import type { AiTool, ToolContext } from "./tool.types.ts";
@@ -89,7 +90,14 @@ export const analyzeRootCauseTool: AiTool<Args> = {
       "(string or null - MUST match a sourceRef literally present above for a PULL_REQUEST signal, else null), " +
       "responsibleUserId (string or null - MUST match a sourceRef literally present above for an OWNERSHIP signal, else null), rollbackRecommended (boolean).";
 
-    const result = await callAgentStepWithRetry("synthesizer", [{ role: "user", content: prompt }]);
+    const result = await callAgentStepWithRetry(
+      "synthesizer",
+      [{ role: "user", content: prompt }],
+      [],
+      undefined,
+      undefined,
+      ctx.providerConfig ?? DEFAULT_AI_PROVIDER_CONFIG,
+    );
     const parsed = parseRootCauseJson(result.message.content ?? "");
 
     // Deterministic grounding check - the LLM's claims must reference

@@ -1,4 +1,5 @@
 import { ConflictError, NotFoundError } from "../../../common/errors/AppError.ts";
+import { DEFAULT_AI_PROVIDER_CONFIG } from "../../../infra/aiService/providerConfig.ts";
 import { callAgentStepWithRetry } from "../agents/agentClient.ts";
 import { productionRepository } from "../../production/production.repository.ts";
 import type { AiTool, ToolContext } from "./tool.types.ts";
@@ -79,7 +80,14 @@ export const generateRecommendationsTool: AiTool<Args> = {
       `priority (one of ${PRIORITIES.join(", ")}), estimatedImpact (short string or null), confidenceScore (0-100 integer). ` +
       `If a rollback is warranted, include exactly one ROLLBACK recommendation as the first item.`;
 
-    const result = await callAgentStepWithRetry("synthesizer", [{ role: "user", content: prompt }]);
+    const result = await callAgentStepWithRetry(
+      "synthesizer",
+      [{ role: "user", content: prompt }],
+      [],
+      undefined,
+      undefined,
+      ctx.providerConfig ?? DEFAULT_AI_PROVIDER_CONFIG,
+    );
     const recommendations = parseRecommendationsJson(result.message.content ?? "");
 
     const created = [];

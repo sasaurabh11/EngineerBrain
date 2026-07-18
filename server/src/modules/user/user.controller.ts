@@ -12,4 +12,9 @@ export const userController = {
     const updated = await userService.updateName(req.dbUser!.id, req.body.name);
     sendSuccess(res, userService.toResponse(updated));
   },
+
+  async updateAiSettings(req: Request, res: Response) {
+    const updated = await userService.updateAiSettings(req.dbUser!.id, req.body);
+    sendSuccess(res, userService.toResponse(updated));
+  },
 };

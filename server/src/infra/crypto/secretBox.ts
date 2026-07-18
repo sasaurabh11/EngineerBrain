@@ -11,7 +11,7 @@ export function isSecretBoxConfigured(): boolean {
 
 function getKey(): Buffer {
   if (!env.PRODUCTION_SECRET_KEY) {
-    throw new ServiceUnavailableError("PRODUCTION_SECRET_KEY is not configured on this server - cannot store production integration credentials");
+    throw new ServiceUnavailableError("PRODUCTION_SECRET_KEY is not configured on this server - cannot store encrypted credentials");
   }
   const key = Buffer.from(env.PRODUCTION_SECRET_KEY, "base64");
   if (key.length !== 32) {
@@ -20,8 +20,9 @@ function getKey(): Buffer {
   return key;
 }
 
-/** Envelope-encrypts a credential (e.g. a Prometheus bearer token) for
- * storage in ProductionIntegration.encryptedCredential. Format:
+/** Envelope-encrypts a credential (e.g. a Prometheus bearer token, or a
+ * user-supplied Gemini/Groq API key) for storage - ProductionIntegration.encryptedCredential
+ * and User.encryptedGeminiKey/encryptedGroqKey all use this. Format:
  * base64(iv):base64(authTag):base64(ciphertext) - self-contained, no
  * separate nonce table needed. */
 export function encryptSecret(plaintext: string): string {

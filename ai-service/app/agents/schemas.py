@@ -35,6 +35,10 @@ class AgentStepRequest(BaseModel):
     # guardrails) prepended alongside the role's generic system prompt -
     # the wire format has no "system" message role, so this is the channel for it.
     system_context: str | None = None
+    # Which LLM backs this call, and an optional per-user API key override -
+    # falls back to this service's own env-configured default when api_key is None.
+    provider: Literal["gemini", "groq"] = "gemini"
+    api_key: str | None = None
 
 
 class AgentStepResponse(BaseModel):
@@ -55,6 +59,8 @@ class PlanRequest(BaseModel):
     goal: str
     repository_context: str | None = None
     available_tools: list[ToolSpec]
+    provider: Literal["gemini", "groq"] = "gemini"
+    api_key: str | None = None
 
 
 class PlanResponse(BaseModel):
@@ -66,6 +72,8 @@ class PlanResponse(BaseModel):
 class ValidateRequest(BaseModel):
     output: str
     evidence: list[str] = Field(default_factory=list)
+    provider: Literal["gemini", "groq"] = "gemini"
+    api_key: str | None = None
 
 
 class ValidateResponse(BaseModel):

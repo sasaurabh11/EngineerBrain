@@ -8,13 +8,6 @@ import { productionRepository } from "./production.repository.ts";
 
 const LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
-/** Polls GitHub Actions workflow runs for every Service linked to a
- * repository and upserts them as Deployment rows - the deployment-history
- * backbone the correlation engine reads from. Runs every 10 minutes;
- * GitHub Actions has no lightweight "deployment" webhook this platform
- * already subscribes to, so polling is the pragmatic v1 ingestion path
- * (see architecture note: push-based Alertmanager alerts are the other
- * ingestion path, for incidents rather than deployments). */
 export function startDeploymentSyncScheduler(): void {
   cron.schedule("*/10 * * * *", async () => {
     logger.info("Running scheduled deployment sync");

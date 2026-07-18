@@ -1,18 +1,19 @@
 import logging
 
-from google import genai
-
+from app.agents.llm import get_chat_model
 from app.analysis.analyzer import AnalysisContext, RawFinding
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-_FALLBACK_SUMMARY = "Architecture summary unavailable (Gemini is not configured for this deployment)."
+_FALLBACK_SUMMARY = "Architecture summary unavailable (no AI provider is configured for this deployment)."
 _MAX_FINDINGS_IN_PROMPT = 15
 
 
-def _is_configured() -> bool:
-    return bool(settings.gemini_api_key)
+def _is_configured(provider: str, api_key: str | None) -> bool:
+    if api_key:
+        return True
+    return bool(settings.groq_api_key) if provider == "groq" else bool(settings.gemini_api_key)
 
 
 async def generate_architecture_summary(
@@ -20,10 +21,12 @@ async def generate_architecture_summary(
     findings: list[RawFinding],
     scores: dict[str, int],
     detected_frameworks: list[str],
+    provider: str = "gemini",
+    api_key: str | None = None,
 ) -> str:
     """One LLM call per analysis (not per-finding) synthesizing an overview -
     grounded in the actual scores and findings, not a generic description."""
-    if not _is_configured():
+    if not _is_configured(provider, api_key):
         return _FALLBACK_SUMMARY
 
     dependency_findings = [f for f in findings if f.category == "DEPENDENCY"][:_MAX_FINDINGS_IN_PROMPT]
@@ -46,9 +49,10 @@ async def generate_architecture_summary(
     )
 
     try:
-        client = genai.Client(api_key=settings.gemini_api_key)
-        response = await client.aio.models.generate_content(model=settings.gemini_chat_model, contents=prompt)
-        return response.text.strip() if response.text else _FALLBACK_SUMMARY
+        llm = get_chat_model(provider=provider, api_key=api_key)
+        response = await llm.ainvoke(prompt)
+        text = response.content if isinstance(response.content, str) else str(response.content)
+        return text.strip() if text else _FALLBACK_SUMMARY
     except Exception:
         logger.exception("Architecture summary generation failed")
         return _FALLBACK_SUMMARY

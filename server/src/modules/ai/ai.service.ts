@@ -1,4 +1,5 @@
 import { NotFoundError } from "../../common/errors/AppError.ts";
+import type { AiProviderSelection } from "../../infra/aiService/providerConfig.ts";
 import { indexingService } from "../indexing/indexing.service.ts";
 import { organizationRepository } from "../organization/organization.repository.ts";
 import { repoRepository } from "../repo/repo.repository.ts";
@@ -88,7 +89,8 @@ export const aiService = {
     userId: string,
     conversationId: string,
     question: string,
-    signal?: AbortSignal,
+    signal: AbortSignal | undefined,
+    providerConfig: AiProviderSelection,
   ): AsyncGenerator<AiStreamEvent> {
     const convo = await conversationRepository.findByOrgAndId(organizationId, conversationId);
     if (!convo || convo.userId !== userId) {
@@ -126,7 +128,7 @@ export const aiService = {
     );
     let messages: ChatMessagePayload[] = buildMessages(context, history, question);
 
-    const toolCtx: ToolContext = { organizationId, userId, repositoryId: convo.repositoryId ?? undefined };
+    const toolCtx: ToolContext = { organizationId, userId, repositoryId: convo.repositoryId ?? undefined, providerConfig };
     const citationsByPath = new Map<string, CitationCandidate>();
     const evidence: string[] = [];
     for (const chunk of context.chunks) {
@@ -146,7 +148,7 @@ export const aiService = {
 
       let step;
       try {
-        step = await callAgentStep("retriever", messages, tools, systemContext, signal);
+        step = await callAgentStep("retriever", messages, tools, systemContext, signal, providerConfig);
       } catch (err) {
         yield { type: "error", message: err instanceof Error ? err.message : "Retriever agent call failed" };
         break;
@@ -191,16 +193,16 @@ export const aiService = {
     let assembledText = "";
     try {
       const synthesisMessages: ChatMessagePayload[] = [{ role: "user", content: buildSynthesisPrompt(question, evidence) }];
-      const synthesis = await callAgentStepWithRetry("synthesizer", synthesisMessages, [], systemContext, signal);
+      const synthesis = await callAgentStepWithRetry("synthesizer", synthesisMessages, [], systemContext, signal, providerConfig);
       assembledText = synthesis.message.content ?? "";
 
       // --- Critic: one bounded grounding check + revision, not persisted ---
-      const verdict = await callValidate(assembledText, evidence, signal);
+      const verdict = await callValidate(assembledText, evidence, signal, providerConfig);
       if (!verdict.passed) {
         const revisionMessages: ChatMessagePayload[] = [
           { role: "user", content: buildRevisionPrompt(question, evidence, assembledText, verdict.issues) },
         ];
-        const revision = await callAgentStepWithRetry("synthesizer", revisionMessages, [], systemContext, signal);
+        const revision = await callAgentStepWithRetry("synthesizer", revisionMessages, [], systemContext, signal, providerConfig);
         assembledText = revision.message.content || assembledText;
       }
     } catch (err) {

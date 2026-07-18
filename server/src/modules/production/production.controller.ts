@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { sendSuccess } from "../../common/response/formatResponse.ts";
+import { resolveAiProviderConfig } from "../../infra/aiService/providerConfig.ts";
 import { listDeploymentsQuerySchema, listIncidentsQuerySchema } from "./production.validation.ts";
 import { productionService } from "./production.service.ts";
 
@@ -106,7 +107,11 @@ export const productionController = {
   },
 
   async generatePostmortem(req: Request, res: Response) {
-    const postmortem = await productionService.generatePostmortem(req.organization!.id, getParam(req, "incidentId"));
+    const postmortem = await productionService.generatePostmortem(
+      req.organization!.id,
+      getParam(req, "incidentId"),
+      resolveAiProviderConfig(req.dbUser!),
+    );
     sendSuccess(res, postmortem, 201);
   },
 

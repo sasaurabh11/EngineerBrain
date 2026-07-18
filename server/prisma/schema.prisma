@@ -117,6 +117,11 @@ enum WebhookEventStatus {
   FAILED
 }
 
+enum AiProvider {
+  GEMINI
+  GROQ
+}
+
 model User {
   id           String   @id @default(uuid())
   clerkId      String   @unique
@@ -125,6 +130,14 @@ model User {
   profileImage String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  // AI provider preference: which LLM backs chat/task-engine/analysis for this
+  // user. The encrypted*Key columns hold an optional personal API key
+  // (envelope-encrypted via infra/crypto/secretBox.ts) - when set for the
+  // selected provider, it's used instead of the app's shared default key.
+  aiProvider         AiProvider @default(GEMINI)
+  encryptedGeminiKey String?
+  encryptedGroqKey   String?
 
   memberships            OrganizationMember[]
   ownedOrgs              Organization[]       @relation("OrganizationOwner")

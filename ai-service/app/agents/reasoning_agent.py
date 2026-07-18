@@ -36,8 +36,14 @@ class ReasoningState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
 
 
-def build_reasoning_graph(role: AgentRole, tools: list[dict], system_context: str | None = None):
-    llm = get_chat_model()
+def build_reasoning_graph(
+    role: AgentRole,
+    tools: list[dict],
+    system_context: str | None = None,
+    provider: str = "gemini",
+    api_key: str | None = None,
+):
+    llm = get_chat_model(provider=provider, api_key=api_key)
     bound_llm = llm.bind_tools(tools) if tools else llm
     system_prompt = _ROLE_SYSTEM_PROMPTS[role]
     if system_context:
@@ -58,8 +64,13 @@ def build_reasoning_graph(role: AgentRole, tools: list[dict], system_context: st
 
 
 async def run_reasoning_step(
-    role: AgentRole, history: list[BaseMessage], tools: list[dict], system_context: str | None = None
+    role: AgentRole,
+    history: list[BaseMessage],
+    tools: list[dict],
+    system_context: str | None = None,
+    provider: str = "gemini",
+    api_key: str | None = None,
 ) -> AIMessage:
-    graph = build_reasoning_graph(role, tools, system_context)
+    graph = build_reasoning_graph(role, tools, system_context, provider, api_key)
     result = await graph.ainvoke({"messages": history})
     return result["messages"][-1]

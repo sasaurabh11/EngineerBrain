@@ -74,9 +74,9 @@ def _format_tools(tools: list[ToolSpec]) -> str:
     )
 
 
-def build_planner_graph():
-    draft_llm = get_chat_model().with_structured_output(PlanDraft)
-    critique_llm = get_chat_model(temperature=0).with_structured_output(PlanCritique)
+def build_planner_graph(provider: str = "gemini", api_key: str | None = None):
+    draft_llm = get_chat_model(provider=provider, api_key=api_key).with_structured_output(PlanDraft)
+    critique_llm = get_chat_model(temperature=0, provider=provider, api_key=api_key).with_structured_output(PlanCritique)
 
     def draft(state: PlannerState) -> dict:
         prompt = _DRAFT_PROMPT.format(
@@ -120,8 +120,14 @@ def build_planner_graph():
     return graph.compile()
 
 
-async def run_planner(goal: str, repository_context: str | None, available_tools: list[ToolSpec]) -> tuple[PlanDraft, bool]:
-    graph = build_planner_graph()
+async def run_planner(
+    goal: str,
+    repository_context: str | None,
+    available_tools: list[ToolSpec],
+    provider: str = "gemini",
+    api_key: str | None = None,
+) -> tuple[PlanDraft, bool]:
+    graph = build_planner_graph(provider, api_key)
     result = await graph.ainvoke(
         {
             "goal": goal,

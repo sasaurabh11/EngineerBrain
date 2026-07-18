@@ -2,6 +2,7 @@ import type { IncidentSeverity, ProductionProvider } from "@prisma/client";
 import { BadRequestError, ConflictError, NotFoundError } from "../../common/errors/AppError.ts";
 import { callAgentStepWithRetry } from "../ai/agents/agentClient.ts";
 import { encryptSecret } from "../../infra/crypto/secretBox.ts";
+import type { AiProviderSelection } from "../../infra/aiService/providerConfig.ts";
 import { taskService } from "../tasks/task.service.ts";
 import { productionRepository } from "./production.repository.ts";
 import type {
@@ -258,7 +259,7 @@ export const productionService = {
    * signals, timeline, recommendations) - a single bounded synthesis call,
    * not a multi-step Task, since by this point every input is already on
    * hand. Requires root-cause analysis to have already run. */
-  async generatePostmortem(organizationId: string, incidentId: string): Promise<PostmortemResponseDto> {
+  async generatePostmortem(organizationId: string, incidentId: string, providerConfig: AiProviderSelection): Promise<PostmortemResponseDto> {
     const incident = await productionRepository.findIncidentByOrgAndId(organizationId, incidentId);
     if (!incident) throw new NotFoundError("Incident not found");
 
@@ -287,7 +288,7 @@ export const productionService = {
       `customerImpact (string), recoverySteps (string), lessonsLearned (string), actionItems (array of {description: string}). ` +
       `Base every claim strictly on the evidence below - do not invent details.\n\n${evidenceText}`;
 
-    const result = await callAgentStepWithRetry("synthesizer", [{ role: "user", content: prompt }]);
+    const result = await callAgentStepWithRetry("synthesizer", [{ role: "user", content: prompt }], [], undefined, undefined, providerConfig);
     const parsed = parsePostmortemJson(result.message.content ?? "");
 
     const postmortem = await productionRepository.upsertPostmortem(incidentId, organizationId, {

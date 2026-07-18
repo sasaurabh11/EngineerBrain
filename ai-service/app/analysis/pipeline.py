@@ -73,11 +73,13 @@ async def run_analysis(request: AnalysisRequest) -> AnalysisResponse:
     context = _build_context(request.repository_id, repo_path)
 
     findings = await run_all(context)
-    findings = await confirm_candidates(findings, context)
+    findings = await confirm_candidates(findings, context, request.provider, request.api_key)
 
     scores = compute_scores(context, findings)
     detected_frameworks = _detect_frameworks(context.dependency_manifests)
-    architecture_summary = await generate_architecture_summary(context, findings, scores, detected_frameworks)
+    architecture_summary = await generate_architecture_summary(
+        context, findings, scores, detected_frameworks, request.provider, request.api_key
+    )
 
     if request.changed_files is not None:
         changed_set = set(request.changed_files)

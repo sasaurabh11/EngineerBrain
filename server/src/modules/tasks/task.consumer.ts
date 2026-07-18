@@ -1,4 +1,5 @@
 import { logger } from "../../config/logger.ts";
+import { DEFAULT_AI_PROVIDER_CONFIG, type AiProviderSelection, resolveAiProviderConfig } from "../../infra/aiService/providerConfig.ts";
 import { QUEUES } from "../../infra/rabbitmq/connection.ts";
 import { consumeQueue } from "../../infra/rabbitmq/consumer.ts";
 import {
@@ -12,6 +13,7 @@ import {
 import { toolRegistry } from "../ai/tools/registry.ts";
 import type { ToolContext } from "../ai/tools/tool.types.ts";
 import { repoRepository } from "../repo/repo.repository.ts";
+import { userRepository } from "../user/user.repository.ts";
 import { taskRepository } from "./task.repository.ts";
 import type { TaskJobPayload, TaskPlan } from "./task.types.ts";
 import { workflowRegistry } from "./workflows/registry.ts";
@@ -23,14 +25,17 @@ function truncate(value: unknown): string {
   return JSON.stringify(value).slice(0, MAX_EVIDENCE_CHARS);
 }
 
-async function resolvePlan(task: {
-  id: string;
-  goal: string;
-  repositoryId: string | null;
-  workflowKey: string | null;
-  workflowParams: unknown;
-  planJson: unknown;
-}): Promise<TaskPlan> {
+async function resolvePlan(
+  task: {
+    id: string;
+    goal: string;
+    repositoryId: string | null;
+    workflowKey: string | null;
+    workflowParams: unknown;
+    planJson: unknown;
+  },
+  providerConfig: AiProviderSelection,
+): Promise<TaskPlan> {
   if (task.planJson) {
     return task.planJson as TaskPlan;
   }
@@ -51,7 +56,7 @@ async function resolvePlan(task: {
   // The Planner sees write tools too (their descriptions say "requires approval") -
   // the safety boundary is the approval gate at execution time in executeToolStep,
   // not what the Planner is allowed to propose.
-  const result = await callPlan(task.goal, repositoryContext, toolRegistry.schemas());
+  const result = await callPlan(task.goal, repositoryContext, toolRegistry.schemas(), providerConfig);
   const plan: TaskPlan = { steps: result.steps, reasoning: result.reasoning };
   await taskRepository.savePlan(task.id, plan);
   return plan;
@@ -158,6 +163,7 @@ async function executeAgentStep(
   goal: string,
   outputs: Map<string, unknown>,
   toolCtx: ToolContext,
+  providerConfig: AiProviderSelection,
 ): Promise<AgentStepResult> {
   const execution = await taskRepository.markExecutionRunning((await taskRepository.createExecution(taskId, step.id, stepIndex, step.input_template)).id);
 
@@ -175,7 +181,7 @@ async function executeAgentStep(
   // accumulate, so the actual answer always comes from a separate, fresh call below.
   const stepEvidence: string[] = [];
   for (let round = 0; round < MAX_STEP_TOOL_ROUNDS; round++) {
-    const result = await callAgentStep("task_step", messages, toolRegistry.readOnlySchemas());
+    const result = await callAgentStep("task_step", messages, toolRegistry.readOnlySchemas(), undefined, undefined, providerConfig);
     messages = [...messages, result.message];
     if (result.done) {
       break;
@@ -204,7 +210,7 @@ async function executeAgentStep(
   const finalPrompt =
     `Overall task goal: ${goal}\n\nYour step: ${step.name}\n\nInformation gathered from prior steps:\n${priorEvidence}\n\n` +
     `Information gathered in this step:\n${stepEvidence.join("\n") || "(none)"}\n\nWrite your final result for this step in plain text.`;
-  const finalResult = await callAgentStepWithRetry("task_step", [{ role: "user", content: finalPrompt }], []);
+  const finalResult = await callAgentStepWithRetry("task_step", [{ role: "user", content: finalPrompt }], [], undefined, undefined, providerConfig);
   const finalText = finalResult.message.content || "(No result was produced for this step.)";
 
   await taskRepository.createLog(execution.id, "info", `Step "${step.name}" completed.`);
@@ -219,9 +225,10 @@ async function executeValidationStep(
   goal: string,
   outputText: string,
   evidence: string[],
+  providerConfig: AiProviderSelection,
 ): Promise<string> {
   const execution = await taskRepository.markExecutionRunning((await taskRepository.createExecution(taskId, step.id, stepIndex, {})).id);
-  const verdict = await callValidate(outputText, evidence);
+  const verdict = await callValidate(outputText, evidence, undefined, providerConfig);
   await taskRepository.createValidation(execution.id, verdict.passed, verdict.issues, verdict.confidence);
 
   let finalText = outputText;
@@ -231,7 +238,7 @@ async function executeValidationStep(
       `Original goal: ${goal}\n\nInformation gathered:\n${evidence.map((e) => `- ${e}`).join("\n") || "(none)"}\n\n` +
       `Previous result: ${outputText}\n\nThat result had grounding issues: ${verdict.issues.join("; ")}. Write a corrected ` +
       "result using only the gathered information.";
-    const revision = await callAgentStepWithRetry("task_step", [{ role: "user", content: revisionPrompt }], []);
+    const revision = await callAgentStepWithRetry("task_step", [{ role: "user", content: revisionPrompt }], [], undefined, undefined, providerConfig);
     finalText = revision.message.content || outputText;
   }
 
@@ -251,8 +258,16 @@ export async function performTask(taskId: string): Promise<void> {
     await taskRepository.markRunning(taskId);
   }
 
-  const plan = await resolvePlan(task);
-  const toolCtx: ToolContext = { organizationId: task.organizationId, userId: task.createdById, repositoryId: task.repositoryId ?? undefined };
+  const creator = await userRepository.findById(task.createdById);
+  const providerConfig = creator ? resolveAiProviderConfig(creator) : DEFAULT_AI_PROVIDER_CONFIG;
+
+  const plan = await resolvePlan(task, providerConfig);
+  const toolCtx: ToolContext = {
+    organizationId: task.organizationId,
+    userId: task.createdById,
+    repositoryId: task.repositoryId ?? undefined,
+    providerConfig,
+  };
 
   const existingExecutions = await taskRepository.listExecutions(taskId);
   const doneIds = new Set(existingExecutions.filter((e) => e.status === "COMPLETED" || e.status === "SKIPPED").map((e) => e.agentKey));
@@ -311,13 +326,13 @@ export async function performTask(taskId: string): Promise<void> {
           evidence.push(truncate(result.output));
           doneIds.add(result.stepId);
         } else if (step.type === "agent" || step.type === "decision") {
-          const { finalText, stepEvidence } = await executeAgentStep(taskId, step, stepIndex, task.goal, outputs, toolCtx);
+          const { finalText, stepEvidence } = await executeAgentStep(taskId, step, stepIndex, task.goal, outputs, toolCtx, providerConfig);
           outputs.set(step.id, finalText);
           lastAgentOutput = finalText;
           evidence.push(truncate(finalText), ...stepEvidence);
           doneIds.add(step.id);
         } else if (step.type === "validation") {
-          lastAgentOutput = await executeValidationStep(taskId, step, stepIndex, task.goal, lastAgentOutput, evidence);
+          lastAgentOutput = await executeValidationStep(taskId, step, stepIndex, task.goal, lastAgentOutput, evidence, providerConfig);
           // The persisted execution output is {verdict, finalText} for dashboard
           // display; a later tool step binding to this step's output (e.g. "post
           // this as a comment") wants just the plain, possibly-corrected text.

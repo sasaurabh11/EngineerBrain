@@ -1,4 +1,4 @@
-import type { OrgRole } from "@prisma/client";
+import type { AiProvider, OrgRole } from "@prisma/client";
 
 export interface UserResponseDto {
   id: string;
@@ -16,4 +16,15 @@ export interface UserResponseDto {
     name: string;
     role: OrgRole;
   } | null;
+  aiProvider: AiProvider;
+  /** Whether a personal key is stored for each provider - never the key itself. */
+  hasGeminiKey: boolean;
+  hasGroqKey: boolean;
+}
+
+export interface UpdateAiSettingsInput {
+  provider?: AiProvider;
+  /** undefined = leave unchanged, null = remove the stored key, string = set a new key. */
+  geminiApiKey?: string | null;
+  groqApiKey?: string | null;
 }

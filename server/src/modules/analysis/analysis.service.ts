@@ -1,11 +1,13 @@
 import type { SyncTrigger } from "@prisma/client";
 import { ConflictError, NotFoundError } from "../../common/errors/AppError.ts";
 import { callAiService } from "../../infra/aiService/aiServiceClient.ts";
+import { DEFAULT_AI_PROVIDER_CONFIG, resolveAiProviderConfig } from "../../infra/aiService/providerConfig.ts";
 import { getInstallationAccessToken } from "../../infra/github/octokitApp.ts";
 import { QUEUES } from "../../infra/rabbitmq/connection.ts";
 import { publishToQueue } from "../../infra/rabbitmq/publisher.ts";
 import { githubRepository } from "../github/github.repository.ts";
 import { repoRepository } from "../repo/repo.repository.ts";
+import { userRepository } from "../user/user.repository.ts";
 import { analysisRepository } from "./analysis.repository.ts";
 import type {
   AiAnalysisResult,
@@ -159,6 +161,13 @@ export const analysisService = {
       throw new ConflictError("GitHub is not connected for this organization");
     }
 
+    // Attribute the AI provider choice to whoever triggered this analysis run -
+    // auto-triggered runs (webhook sync, no human in the loop) have no
+    // triggeredById, so they fall back to the server's default provider/key.
+    const analysis = await analysisRepository.findById(analysisId);
+    const triggeredByUser = analysis?.triggeredById ? await userRepository.findById(analysis.triggeredById) : null;
+    const providerConfig = triggeredByUser ? resolveAiProviderConfig(triggeredByUser) : DEFAULT_AI_PROVIDER_CONFIG;
+
     await analysisRepository.markRunning(analysisId);
 
     const accessToken = await getInstallationAccessToken(Number(installation.githubInstallationId));
@@ -170,6 +179,8 @@ export const analysisService = {
         clone_url: repo.cloneUrl,
         access_token: accessToken,
         default_branch: repo.defaultBranch,
+        provider: providerConfig.provider.toLowerCase(),
+        api_key: providerConfig.apiKey,
       },
     });
 
