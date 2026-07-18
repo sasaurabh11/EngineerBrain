@@ -7,3 +7,11 @@ export function requireNumberParam(params: Record<string, unknown>, key: string)
   }
   return value;
 }
+
+export function requireStringParam(params: Record<string, unknown>, key: string): string {
+  const value = params[key];
+  if (typeof value !== "string" || value.length === 0) {
+    throw new BadRequestError(`This workflow requires a string "${key}" parameter`);
+  }
+  return value;
+}

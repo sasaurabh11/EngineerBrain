@@ -210,6 +210,98 @@ export interface Citation {
   repositoryId: string;
 }
 
+export type IncidentStatus = "DETECTED" | "INVESTIGATING" | "ROOT_CAUSED" | "RESOLVED" | "CLOSED";
+export type IncidentSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+export interface IncidentResponseDto {
+  id: string;
+  title: string;
+  status: IncidentStatus;
+  severity: IncidentSeverity;
+  serviceId: string | null;
+  deploymentId: string | null;
+  taskId: string | null;
+  confidenceScore: number | null;
+  detectedAt: string;
+  resolvedAt: string | null;
+}
+
+export interface IncidentsPageDto {
+  items: IncidentResponseDto[];
+  pageInfo: PageInfo;
+}
+
+export interface IncidentTimelineEventDto {
+  occurredAt: string;
+  eventType: string;
+  description: string;
+  sourceRef: string | null;
+}
+
+export interface IncidentSignalDto {
+  signalType: string;
+  sourceRef: string | null;
+  relevanceScore: number;
+  summary: string;
+}
+
+export interface RootCauseAnalysisDto {
+  summary: string;
+  mostLikelyCause: string;
+  confidenceScore: number;
+  responsibleCommitSha: string | null;
+  responsiblePullRequestId: string | null;
+  responsibleServiceId: string | null;
+  responsibleUserId: string | null;
+  rollbackRecommended: boolean;
+}
+
+export interface RecommendationDto {
+  type: string;
+  title: string;
+  description: string;
+  rationale: string;
+  priority: string;
+  estimatedImpact: string | null;
+  confidenceScore: number;
+}
+
+export interface DeploymentResponseDto {
+  id: string;
+  serviceId: string;
+  repositoryId: string | null;
+  commitSha: string | null;
+  version: string | null;
+  environment: string;
+  status: string;
+  deployedAt: string;
+  sourceProvider: string;
+}
+
+export interface DeploymentsPageDto {
+  items: DeploymentResponseDto[];
+  pageInfo: PageInfo;
+}
+
+export interface ServiceHealthResponseDto {
+  serviceId: string;
+  capturedAt: string | null;
+  errorRate: number | null;
+  p95LatencyMs: number | null;
+  riskScore?: number | null;
+}
+
+export interface PostmortemResponseDto {
+  executiveSummary: string;
+  timelineMarkdown: string;
+  rootCauseMarkdown: string;
+  contributingFactors: string | null;
+  customerImpact: string | null;
+  recoverySteps: string | null;
+  lessonsLearned: string | null;
+  actionItems: unknown;
+}
+
 export type AiStreamEvent =
   | { type: "text-delta"; text: string }
   | { type: "tool-call"; name: string; args: Record<string, unknown> }

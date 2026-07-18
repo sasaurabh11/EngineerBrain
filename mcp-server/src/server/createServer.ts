@@ -6,6 +6,7 @@ import { registerAnalysisTools } from "../tools/analysis.tools.ts";
 import { registerChatTools } from "../tools/chat.tools.ts";
 import { registerCodeTools } from "../tools/code.tools.ts";
 import { registerGraphTools } from "../tools/graph.tools.ts";
+import { registerProductionTools } from "../tools/production.tools.ts";
 import { registerRepositoryTools } from "../tools/repository.tools.ts";
 import { registerSearchTools } from "../tools/search.tools.ts";
 import { registerWorkflowTools } from "../tools/workflow.tools.ts";
@@ -29,6 +30,7 @@ export function createServer(auth: AuthContext): McpServer {
   registerAnalysisTools(server, auth);
   registerWorkflowTools(server, auth);
   registerChatTools(server, auth);
+  registerProductionTools(server, auth);
 
   return server;
 }

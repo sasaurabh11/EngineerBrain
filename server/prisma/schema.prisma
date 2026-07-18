@@ -157,6 +157,13 @@ model Organization {
   tasks              Task[]
   apiKeys            ApiKey[]
 
+  productionIntegrations ProductionIntegration[]
+  services               Service[]
+  deployments            Deployment[]
+  productionEvents       ProductionEvent[]
+  incidents              Incident[]
+  postmortems            Postmortem[]
+
   @@map("organizations")
 }
 
@@ -284,6 +291,8 @@ model Repository {
   citations       Citation[]
   analyses        RepositoryAnalysis[]
   tasks           Task[]
+  services        Service[]
+  deployments     Deployment[]
 
   @@unique([organizationId, githubRepoId])
   @@map("repositories")
@@ -356,7 +365,8 @@ model PullRequest {
   mergedAt        DateTime?
   closedAt        DateTime?
 
-  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  repository  Repository   @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  deployments Deployment[]
 
   @@unique([repositoryId, number])
   @@map("pull_requests")
@@ -777,6 +787,7 @@ model Task {
   organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   repository   Repository?      @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
   executions   AgentExecution[]
+  incidents    Incident[]
 
   @@index([organizationId, status])
   @@index([repositoryId, startedAt])
@@ -845,4 +856,330 @@ model Memory {
 
   @@unique([scope, scopeId, key])
   @@map("memories")
+}
+
+// --- Phase 7: Production Intelligence (AIOps) ---
+//
+// Raw logs/metrics/traces are never stored here - they stay in the source
+// system (Prometheus, GitHub Actions, etc). This schema only stores: the
+// dedup'd raw ingestion record (ProductionEvent, mirroring WebhookEvent),
+// the deployment/service catalog, and the CORRELATED evidence and analysis
+// output (IncidentSignal/RootCauseAnalysis/Recommendation/Postmortem) that
+// the incident-analysis Task workflow produces - see
+// modules/production/engine/ and modules/tasks/workflows/incidentAnalysis.workflow.ts.
+
+enum ProductionProvider {
+  PROMETHEUS
+  GITHUB_ACTIONS
+  // Future adapters (Grafana/Loki, OpenTelemetry, Jaeger, Kubernetes, Docker,
+  // Datadog, New Relic, CloudWatch, Elastic, Jenkins) extend this enum and
+  // implement the same MetricsAdapter/LogsAdapter/TracesAdapter/DeploymentAdapter/
+  // ClusterAdapter interfaces - no changes needed to the correlation engine.
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  DISABLED
+  ERROR
+}
+
+enum ServiceCriticality {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DeploymentStatus {
+  SUCCESS
+  FAILED
+  ROLLED_BACK
+  IN_PROGRESS
+}
+
+enum ProductionEventType {
+  METRIC_ALERT
+  DEPLOYMENT
+}
+
+enum ProductionEventStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+}
+
+enum IncidentStatus {
+  DETECTED
+  INVESTIGATING
+  ROOT_CAUSED
+  RESOLVED
+  CLOSED
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentSignalType {
+  DEPLOYMENT
+  COMMIT
+  PULL_REQUEST
+  METRIC
+  FINDING
+  OWNERSHIP
+}
+
+enum RecommendationType {
+  ROLLBACK
+  CONFIG_CHANGE
+  SCALING
+  CACHING
+  QUERY_OPTIMIZATION
+  INFRA_OPTIMIZATION
+}
+
+enum RecommendationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// An organization's connection to one external production system. `config`
+// holds non-secret settings (base URL, etc); any credential is envelope-
+// encrypted via infra/crypto/secretBox.ts before being written to
+// encryptedCredential - never stored or logged in plaintext.
+model ProductionIntegration {
+  id                  String             @id @default(uuid())
+  organizationId      String
+  provider            ProductionProvider
+  name                String
+  config              Json
+  encryptedCredential String?
+  status              IntegrationStatus  @default(ACTIVE)
+  createdById         String
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  services         Service[]
+  productionEvents ProductionEvent[]
+
+  @@index([organizationId, provider])
+  @@map("production_integrations")
+}
+
+// Catalog of known deployables - the "which service/team owns this" anchor
+// that deployments, incidents, and health snapshots hang off of.
+model Service {
+  id             String             @id @default(uuid())
+  organizationId String
+  integrationId  String?
+  repositoryId   String?
+  name           String
+  ownerUserId    String?
+  criticality    ServiceCriticality @default(MEDIUM)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization    Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  integration     ProductionIntegration?  @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+  repository      Repository?             @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
+  deployments     Deployment[]
+  incidents       Incident[]
+  healthSnapshots ServiceHealthSnapshot[]
+
+  @@unique([organizationId, name])
+  @@map("services")
+}
+
+model Deployment {
+  id             String             @id @default(uuid())
+  organizationId String
+  serviceId      String
+  repositoryId   String?
+  pullRequestId  String?
+  commitSha      String?
+  version        String?
+  environment    String
+  status         DeploymentStatus
+  deployedAt     DateTime
+  sourceProvider ProductionProvider
+  sourceRunId    String?
+  rawPayload     Json?
+  createdAt      DateTime           @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  service      Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  repository   Repository?  @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
+  pullRequest  PullRequest? @relation(fields: [pullRequestId], references: [id], onDelete: SetNull)
+  incidents    Incident[]
+
+  @@unique([serviceId, sourceProvider, sourceRunId])
+  @@index([organizationId, serviceId, deployedAt])
+  @@map("deployments")
+}
+
+// Raw ingestion record - dedup'd, persisted fast, processed async. Direct
+// analog of WebhookEvent for non-GitHub production signals (Alertmanager
+// alerts today; future push sources reuse the same table/queue).
+model ProductionEvent {
+  id             String                @id @default(uuid())
+  organizationId String
+  integrationId  String?
+  eventType      ProductionEventType
+  dedupeKey      String                @unique
+  rawPayload     Json
+  status         ProductionEventStatus @default(RECEIVED)
+  processedAt    DateTime?
+  errorMessage   String?
+  createdAt      DateTime              @default(now())
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  integration  ProductionIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@map("production_events")
+}
+
+// The central incident record. `taskId` points at the *existing* Task engine
+// run performing this incident's collect->correlate->analyze->recommend
+// pipeline - see workflows/incidentAnalysis.workflow.ts - reusing
+// AgentExecution/ExecutionLog/ValidationResult rather than a parallel engine.
+model Incident {
+  id              String           @id @default(uuid())
+  organizationId  String
+  serviceId       String?
+  deploymentId    String?
+  taskId          String?          @unique
+  title           String
+  status          IncidentStatus   @default(DETECTED)
+  severity        IncidentSeverity
+  detectedAt      DateTime         @default(now())
+  resolvedAt      DateTime?
+  confidenceScore Int?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  organization    Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  service         Service?                @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  deployment      Deployment?             @relation(fields: [deploymentId], references: [id], onDelete: SetNull)
+  task            Task?                   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  signals         IncidentSignal[]
+  timeline        IncidentTimelineEvent[]
+  rootCause       RootCauseAnalysis?
+  recommendations Recommendation[]
+  postmortem      Postmortem?
+
+  @@index([organizationId, status])
+  @@index([organizationId, detectedAt])
+  @@map("incidents")
+}
+
+// The correlation engine's output - deterministic, scored evidence. The RCA
+// step reasons ONLY over these rows, never raw logs/metrics, keeping token
+// usage bounded and every claim traceable back to a concrete signal.
+model IncidentSignal {
+  id             String             @id @default(uuid())
+  incidentId     String
+  signalType     IncidentSignalType
+  sourceRef      String?
+  relevanceScore Int
+  summary        String
+  rawData        Json?
+  createdAt      DateTime           @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId, signalType])
+  @@map("incident_signals")
+}
+
+model IncidentTimelineEvent {
+  id          String   @id @default(uuid())
+  incidentId  String
+  occurredAt  DateTime
+  eventType   String
+  description String
+  sourceRef   String?
+  createdAt   DateTime @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId, occurredAt])
+  @@map("incident_timeline_events")
+}
+
+model RootCauseAnalysis {
+  id                       String   @id @default(uuid())
+  incidentId               String   @unique
+  summary                  String
+  mostLikelyCause          String
+  confidenceScore          Int
+  responsibleCommitSha     String?
+  responsiblePullRequestId String?
+  responsibleServiceId     String?
+  responsibleUserId        String?
+  rollbackRecommended      Boolean  @default(false)
+  generatedAt              DateTime @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@map("root_cause_analyses")
+}
+
+model Recommendation {
+  id              String                 @id @default(uuid())
+  incidentId      String
+  type            RecommendationType
+  title           String
+  description     String
+  rationale       String
+  priority        RecommendationPriority
+  estimatedImpact String?
+  confidenceScore Int
+  createdAt       DateTime               @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+  @@map("recommendations")
+}
+
+model Postmortem {
+  id                  String    @id @default(uuid())
+  incidentId          String    @unique
+  organizationId       String
+  executiveSummary    String
+  timelineMarkdown    String
+  rootCauseMarkdown   String
+  contributingFactors String?
+  customerImpact      String?
+  recoverySteps       String?
+  lessonsLearned      String?
+  actionItems         Json?
+  generatedAt         DateTime  @default(now())
+  publishedAt         DateTime?
+
+  incident     Incident     @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("postmortems")
+}
+
+model ServiceHealthSnapshot {
+  id           String   @id @default(uuid())
+  serviceId    String
+  capturedAt   DateTime @default(now())
+  errorRate    Float?
+  p95LatencyMs Float?
+  riskScore    Int?
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId, capturedAt])
+  @@map("service_health_snapshots")
 }

@@ -16,6 +16,9 @@ const envSchema = z.object({
   AI_SERVICE_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_CHAT_MODEL: z.string().min(1).default("gemini-flash-latest"),
+  // 32-byte key, base64-encoded (e.g. `openssl rand -base64 32`) - encrypts
+  // ProductionIntegration credentials at rest. See infra/crypto/secretBox.ts.
+  PRODUCTION_SECRET_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -14,6 +14,8 @@ import { MembersPage } from "./pages/organizations/MembersPage";
 import { OrganizationSettingsPage } from "./pages/organizations/OrganizationSettingsPage";
 import { OrganizationsListPage } from "./pages/organizations/OrganizationsListPage";
 import { ProfilePage } from "./pages/profile/ProfilePage";
+import { IncidentDetailPage } from "./pages/production/IncidentDetailPage";
+import { ProductionPage } from "./pages/production/ProductionPage";
 import { RepositoriesListPage } from "./pages/repositories/RepositoriesListPage";
 import { RepositoryDetailPage } from "./pages/repositories/RepositoryDetailPage";
 import { AgentDashboardPage } from "./pages/tasks/AgentDashboardPage";
@@ -59,6 +61,8 @@ function App() {
             <Route path="/app/:orgSlug/settings" element={<OrganizationSettingsPage />} />
             <Route path="/app/:orgSlug/repositories" element={<RepositoriesListPage />} />
             <Route path="/app/:orgSlug/repositories/:repositoryId" element={<RepositoryDetailPage />} />
+            <Route path="/app/:orgSlug/production" element={<ProductionPage />} />
+            <Route path="/app/:orgSlug/production/incidents/:incidentId" element={<IncidentDetailPage />} />
             <Route path="/app/:orgSlug/ai" element={<AiChatPage />} />
             <Route path="/app/:orgSlug/ai/:conversationId" element={<AiChatPage />} />
             <Route path="/app/:orgSlug/tasks" element={<AgentDashboardPage />} />

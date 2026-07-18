@@ -1,6 +1,7 @@
 import { ChevronRight } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useConversation } from "../../hooks/useAi";
+import { useIncident } from "../../hooks/useProduction";
 import { useRepository } from "../../hooks/useRepositories";
 import { useTask } from "../../hooks/useTasks";
 import { PRIMARY_NAV, WORKSPACE_NAV } from "./nav-items";
@@ -8,6 +9,7 @@ import { PRIMARY_NAV, WORKSPACE_NAV } from "./nav-items";
 const SECTION_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   repositories: "Repositories",
+  production: "Production",
   ai: "AI Chat",
   tasks: "Agent Tasks",
   members: "Members",
@@ -24,6 +26,7 @@ export function Breadcrumbs({ orgSlug }: { orgSlug: string }) {
   const { data: repository } = useRepository(orgSlug, params.repositoryId);
   const { data: task } = useTask(orgSlug, params.taskId);
   const { data: conversation } = useConversation(orgSlug, params.conversationId);
+  const { data: incident } = useIncident(orgSlug, params.incidentId);
 
   const section = window.location.pathname.replace(`/app/${orgSlug}/`, "").split("/")[0];
   const sectionLabel = SECTION_LABELS[section ?? ""] ?? [...PRIMARY_NAV, ...WORKSPACE_NAV].find((n) => n.path(orgSlug).endsWith(`/${section}`))?.label;
@@ -40,6 +43,9 @@ export function Breadcrumbs({ orgSlug }: { orgSlug: string }) {
   }
   if (params.conversationId) {
     crumbs.push({ label: conversation?.title ?? conversation?.repositoryName ?? "Conversation" });
+  }
+  if (params.incidentId) {
+    crumbs.push({ label: incident?.title ?? "…" });
   }
 
   return (

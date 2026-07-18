@@ -1,5 +1,6 @@
 import type { PlanStepPayload } from "../../ai/agents/agentClient.ts";
 import { buildArchitectureReviewPlan } from "./architectureReview.workflow.ts";
+import { buildIncidentAnalysisPlan } from "./incidentAnalysis.workflow.ts";
 import { buildIssueTriagePlan } from "./issueTriage.workflow.ts";
 import { buildOnboardingGuidePlan } from "./onboardingGuide.workflow.ts";
 import { buildPrReviewPlan } from "./prReview.workflow.ts";
@@ -48,6 +49,15 @@ const WORKFLOWS: WorkflowDescriptor[] = [
     description: "Investigates a GitHub issue's likely root cause and affected code, and produces a triage summary.",
     params: [{ key: "issueNumber", label: "Issue number", type: "number", required: true }],
     buildPlan: buildIssueTriagePlan,
+  },
+  {
+    key: "incident-analysis",
+    name: "Production Incident Analysis",
+    description:
+      "Correlates a production incident's deployment, commit, pull request, static-analysis findings, and ownership evidence, determines the " +
+      "most likely root cause with a confidence score, and generates actionable recommendations.",
+    params: [{ key: "incidentId", label: "Incident ID", type: "string", required: true }],
+    buildPlan: buildIncidentAnalysisPlan,
   },
 ];
 

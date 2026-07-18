@@ -9,6 +9,7 @@ export const QUEUES = {
   REPOSITORY_INDEX: "repository.index",
   REPOSITORY_ANALYZE: "repository.analyze",
   TASK_EXECUTE: "task.execute",
+  PRODUCTION_EVENT_PROCESS: "production.event.process",
 } as const;
 
 export const DEAD_LETTER_EXCHANGE = "dlx";
