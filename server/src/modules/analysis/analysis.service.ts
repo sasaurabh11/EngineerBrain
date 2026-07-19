@@ -38,6 +38,7 @@ function toAnalysisDto(analysis: {
   startedAt: Date;
   completedAt: Date | null;
   errorMessage: string | null;
+  errorCode: string | null;
 }): RepositoryAnalysisResponseDto {
   return {
     id: analysis.id,
@@ -58,6 +59,7 @@ function toAnalysisDto(analysis: {
     startedAt: analysis.startedAt,
     completedAt: analysis.completedAt,
     errorMessage: analysis.errorMessage,
+    errorCode: analysis.errorCode,
   };
 }
 

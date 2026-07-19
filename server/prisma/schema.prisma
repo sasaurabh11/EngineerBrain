@@ -704,6 +704,8 @@ model RepositoryAnalysis {
   startedAt            DateTime       @default(now())
   completedAt          DateTime?
   errorMessage         String?
+  // Machine-readable classification of errorMessage - see Task.errorCode.
+  errorCode            String?
 
   repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   findings   Finding[]
@@ -781,6 +783,11 @@ model Task {
   progress       Int        @default(0)
   resultSummary  String?
   errorMessage   String?
+  // Machine-readable classification of errorMessage (e.g. "rate_limited",
+  // "not_configured" from ai-service's provider-error classifier) - lets the
+  // client show a "go to profile settings" action for AI-provider issues
+  // without fragile string-matching on errorMessage.
+  errorCode      String?
   retryCount     Int        @default(0)
 
   // The resolved step graph this task is executing - stored once (either from

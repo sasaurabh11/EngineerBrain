@@ -17,10 +17,10 @@ export const analysisRepository = {
     return prisma.repositoryAnalysis.update({ where: { id }, data: { status: "RUNNING" } });
   },
 
-  markFailed(id: string, errorMessage: string) {
+  markFailed(id: string, errorMessage: string, errorCode?: string) {
     return prisma.repositoryAnalysis.update({
       where: { id },
-      data: { status: "FAILED", completedAt: new Date(), errorMessage },
+      data: { status: "FAILED", completedAt: new Date(), errorMessage, errorCode },
     });
   },
 

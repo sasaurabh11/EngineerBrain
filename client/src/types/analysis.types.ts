@@ -23,6 +23,7 @@ export interface RepositoryAnalysis {
   startedAt: string;
   completedAt: string | null;
   errorMessage: string | null;
+  errorCode: string | null;
 }
 
 export interface Finding {

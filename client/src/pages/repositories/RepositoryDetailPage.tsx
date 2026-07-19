@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
+import { GoToProfileAction } from "@/components/go-to-profile-action";
 import { MarkdownContent } from "@/components/markdown-content";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -133,7 +134,13 @@ function WorkflowAnalysisRow({
         <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3.5">
           {task.status === "COMPLETED" && task.resultSummary && <MarkdownContent content={task.resultSummary} />}
           {task.status === "COMPLETED" && !task.resultSummary && <p className="text-sm text-muted-foreground">Completed with no summary.</p>}
-          {task.status === "FAILED" && <ErrorState title="Analysis failed" message={task.errorMessage ?? "Something went wrong."} />}
+          {task.status === "FAILED" && (
+            <ErrorState
+              title="Analysis failed"
+              message={task.errorMessage ?? "Something went wrong."}
+              action={<GoToProfileAction code={task.errorCode} />}
+            />
+          )}
           {(task.status === "QUEUED" || task.status === "RUNNING") && (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-3.5 animate-spin" /> Analyzing…

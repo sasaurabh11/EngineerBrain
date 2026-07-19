@@ -14,6 +14,16 @@ interface ApiErrorEnvelope {
   error: { message: string; code: string };
 }
 
+export class ApiError extends Error {
+  readonly code: string | undefined;
+
+  constructor(message: string, code: string | undefined) {
+    super(message);
+    this.name = "ApiError";
+    this.code = code;
+  }
+}
+
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
 });
@@ -30,7 +40,8 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiErrorEnvelope>) => {
     const message = error.response?.data?.error?.message ?? error.message ?? "Something went wrong";
-    return Promise.reject(new Error(message));
+    const code = error.response?.data?.error?.code;
+    return Promise.reject(new ApiError(message, code));
   },
 );
 

@@ -51,8 +51,8 @@ export const taskRepository = {
     return prisma.task.update({ where: { id }, data: { status: "CANCELLED", completedAt: new Date() } });
   },
 
-  markFailed(id: string, errorMessage: string) {
-    return prisma.task.update({ where: { id }, data: { status: "FAILED", completedAt: new Date(), errorMessage } });
+  markFailed(id: string, errorMessage: string, errorCode?: string) {
+    return prisma.task.update({ where: { id }, data: { status: "FAILED", completedAt: new Date(), errorMessage, errorCode } });
   },
 
   markRetryRequested(id: string) {

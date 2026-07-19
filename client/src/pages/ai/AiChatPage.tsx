@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
+import { GoToProfileAction } from "@/components/go-to-profile-action";
 import { CircuitField } from "@/components/circuit-field";
 import { cn } from "@/lib/utils";
 import { useRepositories } from "../../hooks/useRepositories";
@@ -27,10 +28,6 @@ const SUGGESTED_QUESTIONS = [
   "Explain how authentication works in this codebase.",
   "Where is the main entry point of this service?",
 ];
-
-// Error codes where the AI service is degraded for a reason a user can fix
-// themselves - by adding their own API key in profile settings.
-const AI_PROVIDER_ERROR_CODES = new Set(["rate_limited", "not_configured", "auth_error"]);
 
 function ConversationSidebar({
   orgSlug,
@@ -285,19 +282,7 @@ function ActiveConversationPanel({ orgSlug, conversationId }: { orgSlug: string;
           </div>
         )}
 
-        {error && (
-          <ErrorState
-            message={error}
-            onRetry={() => send(input)}
-            action={
-              AI_PROVIDER_ERROR_CODES.has(errorCode ?? "") && (
-                <Button asChild type="button" variant="outline" size="sm">
-                  <Link to="/profile">Go to profile settings</Link>
-                </Button>
-              )
-            }
-          />
-        )}
+        {error && <ErrorState message={error} onRetry={() => send(input)} action={<GoToProfileAction code={errorCode} />} />}
 
         <div ref={scrollRef} />
       </div>

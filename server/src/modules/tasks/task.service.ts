@@ -18,6 +18,7 @@ function toTaskDto(task: {
   progress: number;
   resultSummary: string | null;
   errorMessage: string | null;
+  errorCode: string | null;
   retryCount: number;
   pendingStepId: string | null;
   approvedById: string | null;

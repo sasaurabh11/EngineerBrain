@@ -3,6 +3,7 @@ from typing import NoReturn
 from fastapi import HTTPException
 
 _PROFILE_HINT = "Add your own Gemini or Groq API key in your profile settings to avoid this."
+_PROFILE_HINT_MID_SENTENCE = "add your own Gemini or Groq API key in your profile settings."
 
 
 def _status_code_of(exc: Exception) -> int | None:
@@ -38,5 +39,8 @@ def raise_provider_error(exc: Exception) -> NoReturn:
 
     raise HTTPException(
         status_code=502,
-        detail={"code": "provider_error", "message": "The AI provider returned an error. Please try again in a moment."},
+        detail={
+            "code": "provider_error",
+            "message": f"The AI provider returned an error. If this keeps happening, {_PROFILE_HINT_MID_SENTENCE}",
+        },
     ) from exc

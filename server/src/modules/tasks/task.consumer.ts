@@ -1,3 +1,4 @@
+import { AppError } from "../../common/errors/AppError.ts";
 import { logger } from "../../config/logger.ts";
 import { DEFAULT_AI_PROVIDER_CONFIG, type AiProviderSelection, resolveAiProviderConfig } from "../../infra/aiService/providerConfig.ts";
 import { QUEUES } from "../../infra/rabbitmq/connection.ts";
@@ -362,9 +363,10 @@ export function startTaskConsumer(): void {
       await performTask(payload.taskId);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown task execution error";
+      const code = err instanceof AppError ? err.code : undefined;
       const current = await taskRepository.findById(payload.taskId);
       if (current?.status !== "CANCELLED") {
-        await taskRepository.markFailed(payload.taskId, message);
+        await taskRepository.markFailed(payload.taskId, message, code);
       }
       logger.error({ err, taskId: payload.taskId }, "Task execution failed");
       throw err;

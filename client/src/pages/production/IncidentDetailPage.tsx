@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ErrorState } from "@/components/error-state";
+import { ApiError } from "../../api/axiosClient";
+import { GoToProfileAction } from "@/components/go-to-profile-action";
 import { MarkdownContent } from "@/components/markdown-content";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
@@ -77,9 +79,11 @@ export function IncidentDetailPage() {
   const createTask = useCreateTask(orgSlug);
   const generatePostmortem = useGeneratePostmortem(orgSlug, incidentId);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionErrorCode, setActionErrorCode] = useState<string | undefined>(undefined);
 
   async function handleRunAnalysis() {
     setActionError(null);
+    setActionErrorCode(undefined);
     try {
       await createTask.mutateAsync({
         goal: `Investigate incident: ${incident?.title ?? incidentId}`,
@@ -89,15 +93,18 @@ export function IncidentDetailPage() {
       refetch();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to start analysis");
+      setActionErrorCode(err instanceof ApiError ? err.code : undefined);
     }
   }
 
   async function handleGeneratePostmortem() {
     setActionError(null);
+    setActionErrorCode(undefined);
     try {
       await generatePostmortem.mutateAsync();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to generate postmortem");
+      setActionErrorCode(err instanceof ApiError ? err.code : undefined);
     }
   }
 
@@ -144,7 +151,12 @@ export function IncidentDetailPage() {
           )}
         </div>
       </div>
-      {actionError && <p className="text-sm text-destructive">{actionError}</p>}
+      {actionError && (
+        <div className="space-y-2">
+          <p className="text-sm text-destructive">{actionError}</p>
+          <GoToProfileAction code={actionErrorCode} />
+        </div>
+      )}
 
       {/* Timeline */}
       <div>

@@ -24,6 +24,7 @@ export interface RepositoryAnalysisResponseDto {
   startedAt: Date;
   completedAt: Date | null;
   errorMessage: string | null;
+  errorCode: string | null;
 }
 
 export interface FindingResponseDto {

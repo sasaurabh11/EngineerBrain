@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
+import { GoToProfileAction } from "@/components/go-to-profile-action";
 import { MarkdownContent } from "@/components/markdown-content";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
@@ -244,7 +245,9 @@ export function TaskDetailPage() {
         </div>
       )}
 
-      {task.status === "FAILED" && task.errorMessage && <ErrorState title="Task failed" message={task.errorMessage} />}
+      {task.status === "FAILED" && task.errorMessage && (
+        <ErrorState title="Task failed" message={task.errorMessage} action={<GoToProfileAction code={task.errorCode} />} />
+      )}
 
       {task.status === "COMPLETED" && task.resultSummary && (
         <Card>

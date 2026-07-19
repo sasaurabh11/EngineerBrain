@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
+import { GoToProfileAction } from "@/components/go-to-profile-action";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
@@ -252,6 +253,7 @@ export function HealthDashboard({ orgSlug, repositoryId }: { orgSlug: string; re
         title="Analysis failed"
         message={status.errorMessage ?? "The analysis run did not complete."}
         onRetry={() => retryAnalysis.mutate(status.id)}
+        action={<GoToProfileAction code={status.errorCode} />}
       />
     );
   }
