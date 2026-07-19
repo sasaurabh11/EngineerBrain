@@ -1,10 +1,12 @@
 import { SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
 import { ArrowRight } from "lucide-react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
+import { warmupServices } from "@/lib/warmupServices";
 import { AnalysisLedger } from "./components/analysis-ledger";
 import { ChatSpecimen, IncidentSpecimen, ScoreSpecimen, TraceSpecimen } from "./components/capability-specimens";
 import { McpTranscript } from "./components/mcp-transcript";
@@ -78,6 +80,10 @@ function HomeHeader() {
 }
 
 export function HomePage() {
+  useEffect(() => {
+    warmupServices();
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <HomeHeader />
