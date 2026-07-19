@@ -1,5 +1,7 @@
+import { AlertTriangle, Server, Siren } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MetricCard } from "@/components/metric-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { ViewAllLink } from "@/components/view-all-link";
@@ -20,26 +22,21 @@ export function OverviewTab({ orgSlug }: { orgSlug: string }) {
   return (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardContent className="py-4">
-            <p className="font-mono text-[11px] tracking-wide text-muted-foreground uppercase">Active incidents</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{incidentsLoading ? "–" : activeIncidents.length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="py-4">
-            <p className="font-mono text-[11px] tracking-wide text-muted-foreground uppercase">Critical &amp; unresolved</p>
-            <p className={`mt-1 text-2xl font-semibold tabular-nums ${criticalCount > 0 ? "text-destructive" : "text-foreground"}`}>
-              {incidentsLoading ? "–" : criticalCount}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="py-4">
-            <p className="font-mono text-[11px] tracking-wide text-muted-foreground uppercase">Registered services</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{servicesLoading ? "–" : (services?.length ?? 0)}</p>
-          </CardContent>
-        </Card>
+        <MetricCard
+          label="Active incidents"
+          value={incidentsLoading ? "–" : activeIncidents.length}
+          icon={Siren}
+          tone={activeIncidents.length > 0 ? "warning" : "success"}
+          hint="Incidents currently in the DETECTED or INVESTIGATING stage."
+        />
+        <MetricCard
+          label="Critical & unresolved"
+          value={incidentsLoading ? "–" : criticalCount}
+          icon={AlertTriangle}
+          tone={criticalCount > 0 ? "danger" : "success"}
+          hint="Active incidents specifically at CRITICAL severity - the ones most likely to need immediate attention."
+        />
+        <MetricCard label="Registered services" value={servicesLoading ? "–" : (services?.length ?? 0)} icon={Server} tone="neutral" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -54,7 +51,9 @@ export function OverviewTab({ orgSlug }: { orgSlug: string }) {
                 <Skeleton className="h-9 w-full" />
               </div>
             )}
-            {!incidentsLoading && activeIncidents.length === 0 && <p className="py-2 text-sm text-muted-foreground">No active incidents.</p>}
+            {!incidentsLoading && activeIncidents.length === 0 && (
+              <p className="py-2 text-sm text-muted-foreground">No active incidents — every incident is resolved or hasn't been detected yet.</p>
+            )}
             {!incidentsLoading && activeIncidents.length > 0 && (
               <div className="space-y-0.5">
                 {activeIncidents.slice(0, 5).map((incident) => (

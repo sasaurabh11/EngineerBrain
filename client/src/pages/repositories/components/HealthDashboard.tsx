@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { GoToProfileAction } from "@/components/go-to-profile-action";
+import { InfoTooltip } from "@/components/info-tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
@@ -19,22 +20,66 @@ import {
   useRetryAnalysis,
   useTriggerAnalysis,
 } from "../../../hooks/useAnalysis";
-import type { Finding, FindingCategory, FindingSeverity } from "../../../types/analysis.types";
+import type { Finding, FindingCategory, FindingSeverity, RepositoryAnalysis } from "../../../types/analysis.types";
 import { DependencyCycleGraph } from "./DependencyCycleGraph";
 import { TrendChart } from "./TrendChart";
 
 const SCORE_LABELS = [
-  { key: "overallScore", label: "Overall" },
-  { key: "architectureScore", label: "Architecture" },
-  { key: "securityScore", label: "Security" },
-  { key: "performanceScore", label: "Performance" },
-  { key: "maintainabilityScore", label: "Maintainability" },
-  { key: "scalabilityScore", label: "Scalability" },
-  { key: "modularityScore", label: "Modularity" },
-  { key: "layeringScore", label: "Layering" },
-  { key: "documentationScore", label: "Documentation" },
-  { key: "complexityScore", label: "Complexity" },
-  { key: "technicalDebtScore", label: "Technical Debt" },
+  {
+    key: "overallScore",
+    label: "Overall",
+    hint: "A weighted average of every score below - the single number to watch for this repository's overall engineering health.",
+  },
+  {
+    key: "architectureScore",
+    label: "Architecture",
+    hint: "Reflects how cleanly the codebase is structured: layering, design-pattern usage, and absence of architectural anti-patterns like circular dependencies.",
+  },
+  {
+    key: "securityScore",
+    label: "Security",
+    hint: "Lower when the analysis finds SECURITY-category findings - secrets, injection risks, unsafe dependencies - weighted by severity.",
+  },
+  {
+    key: "performanceScore",
+    label: "Performance",
+    hint: "Reflects PERFORMANCE-category findings - hot paths, inefficient patterns, and complexity that's likely to cause runtime slowness.",
+  },
+  {
+    key: "maintainabilityScore",
+    label: "Maintainability",
+    hint: "How easy this codebase is to safely change - combines documentation, complexity, and technical debt into one measure.",
+  },
+  {
+    key: "scalabilityScore",
+    label: "Scalability",
+    hint: "Whether the architecture can handle growth in load or codebase size without major rework - penalizes tight coupling and monolithic hot spots.",
+  },
+  {
+    key: "modularityScore",
+    label: "Modularity",
+    hint: "How well-separated concerns are across modules/files - high coupling and god-modules lower this score.",
+  },
+  {
+    key: "layeringScore",
+    label: "Layering",
+    hint: "Whether dependencies flow in one direction through the intended layers (e.g. UI → service → data) without upward or circular violations.",
+  },
+  {
+    key: "documentationScore",
+    label: "Documentation",
+    hint: "Coverage and quality of comments, docstrings, and READMEs relative to the codebase's complexity.",
+  },
+  {
+    key: "complexityScore",
+    label: "Complexity",
+    hint: "Based on cyclomatic complexity and function/file size - lower scores mean more oversized, hard-to-follow code.",
+  },
+  {
+    key: "technicalDebtScore",
+    label: "Technical Debt",
+    hint: "Estimates the accumulated cost of shortcuts and unresolved findings still open in the codebase - lower means more debt to pay down.",
+  },
 ] as const;
 
 const SEVERITY_TONE: Record<FindingSeverity, StatusTone> = {
@@ -55,12 +100,65 @@ function scoreToneClass(score: number | null): string {
   return "text-destructive";
 }
 
-function ScoreCard({ label, score }: { label: string; score: number | null }) {
+function ScoreCard({ label, score, hint }: { label: string; score: number | null; hint: string }) {
   return (
     <div className="rounded-lg border border-border bg-card p-4 text-center">
       <p className={cn("text-3xl font-semibold tabular-nums", scoreToneClass(score))}>{score ?? "—"}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{label}</p>
+      <div className="mt-1 flex items-center justify-center gap-1">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <InfoTooltip>{hint}</InfoTooltip>
+      </div>
     </div>
+  );
+}
+
+const DIMENSION_LABELS = SCORE_LABELS.filter((s) => s.key !== "overallScore");
+
+/** Deterministic (not fabricated) rollup computed from the same analysis +
+ * findings data already on screen - answers "what should I look at first"
+ * without inventing a narrative the LLM never actually generated. */
+function HealthSummaryBanner({ analysis, findings }: { analysis: RepositoryAnalysis; findings: Finding[] }) {
+  const criticalCount = findings.filter((f) => f.severity === "CRITICAL").length;
+  const highCount = findings.filter((f) => f.severity === "HIGH").length;
+
+  const weakest = [...DIMENSION_LABELS]
+    .map((d) => ({ ...d, score: analysis[d.key] }))
+    .filter((d): d is (typeof DIMENSION_LABELS)[number] & { score: number } => d.score !== null)
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 3);
+
+  let tone: StatusTone = "success";
+  let headline = "No critical issues found";
+  if (criticalCount > 0) {
+    tone = "danger";
+    headline = `${criticalCount} critical issue${criticalCount === 1 ? "" : "s"} need attention`;
+  } else if (highCount > 0) {
+    tone = "warning";
+    headline = `${highCount} high-severity issue${highCount === 1 ? "" : "s"} to review`;
+  } else if (analysis.overallScore !== null && analysis.overallScore < 60) {
+    tone = "warning";
+    headline = "Overall score is below a healthy threshold";
+  }
+
+  return (
+    <Card>
+      <CardContent className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <StatusBadge tone={tone}>{headline}</StatusBadge>
+        </div>
+        {weakest.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Lowest-scoring dimensions:{" "}
+            {weakest.map((d, i) => (
+              <span key={d.key}>
+                <span className="font-medium text-foreground">{d.label}</span> ({d.score}
+                ){i < weakest.length - 1 ? ", " : ""}
+              </span>
+            ))}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -178,6 +276,8 @@ export function HealthDashboard({ orgSlug, repositoryId }: { orgSlug: string; re
     pageSize: 100,
   });
   const { data: patternsPage } = useFindings(orgSlug, repositoryId, isComplete, { category: "PATTERN", pageSize: 100 });
+  // Unfiltered, used only to compute the health summary banner below - independent of the category/severity filters above.
+  const { data: allFindingsPage } = useFindings(orgSlug, repositoryId, isComplete, { pageSize: 200 });
   const { data: trend } = useAnalysisTrend(orgSlug, repositoryId, isComplete, 20);
   const triggerAnalysis = useTriggerAnalysis(orgSlug, repositoryId);
   const retryAnalysis = useRetryAnalysis(orgSlug, repositoryId);
@@ -281,9 +381,11 @@ export function HealthDashboard({ orgSlug, repositoryId }: { orgSlug: string; re
       </div>
       {reportError && <p className="text-sm text-destructive">{reportError}</p>}
 
+      {analysis && <HealthSummaryBanner analysis={analysis} findings={allFindingsPage?.items ?? []} />}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-        {SCORE_LABELS.map(({ key, label }) => (
-          <ScoreCard key={key} label={label} score={analysis ? (analysis[key] as number | null) : null} />
+        {SCORE_LABELS.map(({ key, label, hint }) => (
+          <ScoreCard key={key} label={label} hint={hint} score={analysis ? (analysis[key] as number | null) : null} />
         ))}
       </div>
 

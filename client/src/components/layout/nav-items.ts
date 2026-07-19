@@ -1,4 +1,4 @@
-import { Activity, Bot, FolderGit2, LayoutDashboard, Settings, Sparkles, Users } from "lucide-react";
+import { Activity, Bot, FolderGit2, LayoutDashboard, Plug, Settings, Sparkles, Users } from "lucide-react";
 
 export interface NavItem {
   label: string;
@@ -16,5 +16,6 @@ export const PRIMARY_NAV: NavItem[] = [
 
 export const WORKSPACE_NAV: NavItem[] = [
   { label: "Members", path: (org) => `/app/${org}/members`, icon: Users },
+  { label: "MCP", path: (org) => `/app/${org}/mcp`, icon: Plug },
   { label: "Settings", path: (org) => `/app/${org}/settings`, icon: Settings },
 ];

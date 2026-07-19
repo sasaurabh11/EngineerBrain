@@ -13,6 +13,7 @@ const SECTION_LABELS: Record<string, string> = {
   ai: "AI Chat",
   tasks: "Agent Tasks",
   members: "Members",
+  mcp: "MCP",
   settings: "Settings",
 };
 

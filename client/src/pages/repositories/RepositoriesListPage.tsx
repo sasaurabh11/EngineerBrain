@@ -1,5 +1,5 @@
-import { ExternalLink, FolderGit2, GitBranch, Loader2, RefreshCw, Search, Star, Trash2 } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { ExternalLink, FolderGit2, GitBranch, GitFork, HardDrive, Loader2, RefreshCw, Search, Star, Trash2, TriangleAlert } from "lucide-react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,9 +8,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { PageHelp } from "@/components/page-help";
+import { ScorePill } from "@/components/score-pill";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
+import { formatRelativeTime, formatSize } from "@/lib/utils";
+import { useLatestAnalysis } from "../../hooks/useAnalysis";
 import { useGitHubStatus } from "../../hooks/useGithub";
 import { useOrganization } from "../../hooks/useOrganizations";
 import {
@@ -20,7 +24,7 @@ import {
   useRepositories,
   useSyncRepository,
 } from "../../hooks/useRepositories";
-import type { ListRepositoriesFilters, SyncStatus } from "../../types/repository.types";
+import type { ListRepositoriesFilters, Repository, SyncStatus } from "../../types/repository.types";
 import { getManageGitHubInstallationUrl } from "../../utils/github";
 
 const SYNC_STATUS_TONE: Record<SyncStatus, StatusTone> = {
@@ -29,6 +33,125 @@ const SYNC_STATUS_TONE: Record<SyncStatus, StatusTone> = {
   SYNCED: "success",
   FAILED: "danger",
 };
+
+function RepositoryCard({
+  orgSlug,
+  repo,
+  index,
+  canManage,
+  onNavigate,
+  onSync,
+  onRemove,
+  syncPending,
+}: {
+  orgSlug: string;
+  repo: Repository;
+  index: number;
+  canManage: boolean;
+  onNavigate: () => void;
+  onSync: () => void;
+  onRemove: () => void;
+  syncPending: boolean;
+}) {
+  const { data: analysis, isLoading: isLoadingAnalysis } = useLatestAnalysis(orgSlug, repo.id, true);
+
+  return (
+    <Card
+      role="button"
+      tabIndex={0}
+      className="group hover-lift animate-fade-up cursor-pointer transition-colors hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      style={{ animationDelay: `${Math.min(index * 40, 320)}ms` }}
+      onClick={onNavigate}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onNavigate();
+        }
+      }}
+    >
+      <CardContent className="space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-start gap-2">
+            <FolderGit2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-foreground">{repo.fullName}</p>
+              <p className="line-clamp-2 text-xs text-muted-foreground">{repo.description ?? "No description"}</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {isLoadingAnalysis ? (
+              <Skeleton className="h-5 w-8" />
+            ) : (
+              <ScorePill score={analysis?.overallScore ?? null} size="sm" />
+            )}
+            <StatusBadge tone={SYNC_STATUS_TONE[repo.syncStatus]} pulse={repo.syncStatus === "SYNCING"}>
+              {repo.syncStatus.toLowerCase()}
+            </StatusBadge>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          {repo.primaryLanguage && (
+            <span className="flex items-center gap-1">
+              <span className="size-2 rounded-full bg-primary" />
+              {repo.primaryLanguage}
+            </span>
+          )}
+          <span className="flex items-center gap-1">
+            <Star className="size-3" />
+            {repo.starsCount}
+          </span>
+          <span className="flex items-center gap-1">
+            <GitFork className="size-3" />
+            {repo.forksCount}
+          </span>
+          {repo.openIssuesCount > 0 && (
+            <span className="flex items-center gap-1">
+              <TriangleAlert className="size-3" />
+              {repo.openIssuesCount} open
+            </span>
+          )}
+          <span className="flex items-center gap-1">
+            <GitBranch className="size-3" />
+            {repo.defaultBranch}
+          </span>
+          <span className="flex items-center gap-1">
+            <HardDrive className="size-3" />
+            {formatSize(repo.sizeKb)}
+          </span>
+        </div>
+
+        <p className="text-xs text-muted-foreground">Synced {formatRelativeTime(repo.lastSyncedAt)}</p>
+
+        {canManage && (
+          <div className="flex items-center gap-3 border-t border-border pt-2.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSync();
+              }}
+              disabled={syncPending}
+              className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              <RefreshCw className="size-3" /> Sync
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove();
+              }}
+              className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 className="size-3" /> Remove
+            </button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export function RepositoriesListPage() {
   const { orgSlug = "" } = useParams();
@@ -39,6 +162,12 @@ export function RepositoriesListPage() {
   const [filters, setFilters] = useState<ListRepositoriesFilters>({});
   const [searchInput, setSearchInput] = useState("");
   const { data: repositories, isLoading, isError, refetch } = useRepositories(orgSlug, filters);
+  // Unfiltered, used only to populate the language filter's options regardless of the current filter selection.
+  const { data: allRepositories } = useRepositories(orgSlug, {});
+  const languages = useMemo(
+    () => Array.from(new Set((allRepositories ?? []).map((r) => r.primaryLanguage).filter((l): l is string => Boolean(l)))).sort(),
+    [allRepositories],
+  );
 
   const [isImporting, setIsImporting] = useState(false);
   const { data: availableRepos, isLoading: isLoadingAvailable } = useAvailableRepositories(orgSlug, isImporting);
@@ -111,7 +240,17 @@ export function RepositoriesListPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between animate-fade-up">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">Repositories</h1>
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-xl font-semibold text-foreground">Repositories</h1>
+            <PageHelp title="What's on this page">
+              <p>Every repository imported from GitHub, with its health score, stars, forks, open issues, size, and last sync time at a glance.</p>
+              <p>
+                Click <strong>Import repositories</strong> to pull in more from your connected GitHub installation. Use the search, language filter, and
+                sort controls to find one quickly, or click a card to open its full detail view.
+              </p>
+              <p>Hover a card to reveal <strong>Sync</strong> (refresh from GitHub) and <strong>Remove</strong> actions.</p>
+            </PageHelp>
+          </div>
           <p className="text-sm text-muted-foreground">Repositories imported and analyzed in this organization.</p>
         </div>
         {canManage && (
@@ -195,6 +334,22 @@ export function RepositoriesListPage() {
           </InputGroup>
         </form>
         <Select
+          value={filters.language ?? "all"}
+          onValueChange={(value) => setFilters((prev) => ({ ...prev, language: value === "all" ? undefined : value }))}
+        >
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Language" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All languages</SelectItem>
+            {languages.map((lang) => (
+              <SelectItem key={lang} value={lang}>
+                {lang}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
           value={filters.sort ?? "imported"}
           onValueChange={(value) => setFilters((prev) => ({ ...prev, sort: value as ListRepositoriesFilters["sort"] }))}
         >
@@ -227,78 +382,17 @@ export function RepositoriesListPage() {
       {!isLoading && !isError && repositories && repositories.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {repositories.map((repo, index) => (
-            <Card
+            <RepositoryCard
               key={repo.id}
-              role="button"
-              tabIndex={0}
-              className="group hover-lift animate-fade-up cursor-pointer transition-colors hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-              style={{ animationDelay: `${Math.min(index * 40, 320)}ms` }}
-              onClick={() => navigate(`/app/${orgSlug}/repositories/${repo.id}`)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  navigate(`/app/${orgSlug}/repositories/${repo.id}`);
-                }
-              }}
-            >
-              <CardContent className="space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex min-w-0 items-start gap-2">
-                    <FolderGit2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">{repo.fullName}</p>
-                      <p className="line-clamp-2 text-xs text-muted-foreground">{repo.description ?? "No description"}</p>
-                    </div>
-                  </div>
-                  <StatusBadge tone={SYNC_STATUS_TONE[repo.syncStatus]} pulse={repo.syncStatus === "SYNCING"} className="shrink-0">
-                    {repo.syncStatus.toLowerCase()}
-                  </StatusBadge>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                  {repo.primaryLanguage && (
-                    <span className="flex items-center gap-1">
-                      <span className="size-2 rounded-full bg-primary" />
-                      {repo.primaryLanguage}
-                    </span>
-                  )}
-                  <span className="flex items-center gap-1">
-                    <Star className="size-3" />
-                    {repo.starsCount}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <GitBranch className="size-3" />
-                    {repo.defaultBranch}
-                  </span>
-                </div>
-
-                {canManage && (
-                  <div className="flex items-center gap-3 border-t border-border pt-2.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSync(repo.id);
-                      }}
-                      disabled={syncRepository.isPending}
-                      className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-                    >
-                      <RefreshCw className="size-3" /> Sync
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemove(repo.id, repo.fullName);
-                      }}
-                      className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="size-3" /> Remove
-                    </button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+              orgSlug={orgSlug}
+              repo={repo}
+              index={index}
+              canManage={canManage}
+              onNavigate={() => navigate(`/app/${orgSlug}/repositories/${repo.id}`)}
+              onSync={() => handleSync(repo.id)}
+              onRemove={() => handleRemove(repo.id, repo.fullName)}
+              syncPending={syncRepository.isPending}
+            />
           ))}
         </div>
       )}

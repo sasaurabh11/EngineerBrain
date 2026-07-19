@@ -10,6 +10,7 @@ import { SignInPage } from "./pages/auth/SignInPage";
 import { SignUpPage } from "./pages/auth/SignUpPage";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import { HomePage } from "./pages/home/HomePage";
+import { McpPage } from "./pages/mcp/McpPage";
 import { MembersPage } from "./pages/organizations/MembersPage";
 import { OrganizationSettingsPage } from "./pages/organizations/OrganizationSettingsPage";
 import { OrganizationsListPage } from "./pages/organizations/OrganizationsListPage";
@@ -58,6 +59,7 @@ function App() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/app/:orgSlug/dashboard" element={<DashboardPage />} />
             <Route path="/app/:orgSlug/members" element={<MembersPage />} />
+            <Route path="/app/:orgSlug/mcp" element={<McpPage />} />
             <Route path="/app/:orgSlug/settings" element={<OrganizationSettingsPage />} />
             <Route path="/app/:orgSlug/repositories" element={<RepositoriesListPage />} />
             <Route path="/app/:orgSlug/repositories/:repositoryId" element={<RepositoryDetailPage />} />

@@ -1,7 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { taskApi } from "../api/task.api";
+import type { TaskStatus } from "../types/task.types";
 
 const ACTIVE_STATUSES = new Set(["QUEUED", "RUNNING", "PENDING_APPROVAL"]);
+const ALL_STATUSES: TaskStatus[] = ["QUEUED", "RUNNING", "PENDING_APPROVAL", "COMPLETED", "FAILED", "CANCELLED"];
+
+/** Real per-status totals (via pageInfo.totalCount on a pageSize=1 request
+ * per status), not a count of whatever page happens to be loaded - so the
+ * dashboard's stat tiles never understate totals beyond the first page. */
+export function useTaskStatusCounts(orgSlug: string | undefined) {
+  return useQuery({
+    queryKey: ["tasks", "counts", orgSlug],
+    queryFn: async () => {
+      const results = await Promise.all(ALL_STATUSES.map((status) => taskApi.list(orgSlug!, { status, pageSize: 1 })));
+      return Object.fromEntries(ALL_STATUSES.map((status, i) => [status, results[i].pageInfo.totalCount])) as Record<TaskStatus, number>;
+    },
+    enabled: Boolean(orgSlug),
+    refetchInterval: 10000,
+  });
+}
 
 export function useWorkflows(orgSlug: string | undefined) {
   return useQuery({
@@ -70,7 +87,10 @@ export function useCreateTask(orgSlug: string) {
       workflowKey?: string;
       workflowParams?: Record<string, unknown>;
     }) => taskApi.create(orgSlug, goal, repositoryId, workflowKey, workflowParams),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks", "list", orgSlug] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks", "list", orgSlug] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", "counts", orgSlug] });
+    },
   });
 }
 
@@ -81,6 +101,7 @@ function useTaskAction(orgSlug: string, action: (orgSlug: string, taskId: string
     onSuccess: (_data, taskId) => {
       queryClient.invalidateQueries({ queryKey: ["tasks", "detail", orgSlug, taskId] });
       queryClient.invalidateQueries({ queryKey: ["tasks", "list", orgSlug] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", "counts", orgSlug] });
     },
   });
 }

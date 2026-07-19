@@ -26,8 +26,8 @@ export function AuthLayout() {
       <div className="relative hidden overflow-hidden border-r border-border bg-muted/30 lg:flex lg:flex-col">
         <CircuitField density={1.1} className="pointer-events-none absolute inset-0 opacity-[0.4] dark:opacity-[0.3]" />
         <div className="relative flex flex-1 flex-col justify-between p-10">
-          <Link to="/">
-            <BrandMark />
+          <Link to="/" aria-label="Go to EngineerBrain home">
+            <img src="/logo-3.png" alt="EngineerBrain" className="h-9 w-auto" />
           </Link>
           <div className="max-w-md animate-fade-up">
             <span className="font-mono text-[11px] tracking-wide text-primary uppercase">{copy.eyebrow}</span>

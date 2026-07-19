@@ -183,6 +183,15 @@ claude mcp add engineerbrain -e ENGINEERBRAIN_API_KEY=eb_live_... -e ENGINEERBRA
 | `run_engineering_workflow` | Starts a workflow (`pr-review`, `issue-triage`, `architecture-review`, `onboarding-guide`) and waits up to 90s for it to finish. Write-back steps (posting to GitHub) pause for a human's approval in the web app. |
 | `get_task_status` | Checks on a workflow run started by `run_engineering_workflow`, including its step-by-step log. |
 | `ask_repository` | Asks EngineerBrain's own retrieval-grounded chat assistant a question; returns a synthesized answer with file citations. |
+| `declare_incident` | Manually declares a production incident and starts the real correlation/root-cause/recommendation pipeline against it. |
+| `production_incidents` | Lists production incidents, optionally filtered by status or severity. |
+| `incident_summary` | Full details for one incident: status, severity, timeline, and correlated evidence. |
+| `root_cause_analysis` | The root cause analysis for an incident - most likely cause, confidence score, responsible commit/PR/user. |
+| `deployment_history` | Recent deployments, optionally filtered by service or environment. |
+| `service_health` | A service's current health snapshot: error rate, p95 latency, risk score. |
+| `blast_radius` | Estimates which other services might be affected by an incident (same-repository services only in this slice - ask EngineerBrain AI chat for code-level blast radius). |
+| `generate_postmortem` | Generates a full postmortem document for an incident that already has a root cause analysis. |
+| `rollback_recommendation` | Reports whether a rollback is recommended for an incident, and why. |
 
 ## Resources
 

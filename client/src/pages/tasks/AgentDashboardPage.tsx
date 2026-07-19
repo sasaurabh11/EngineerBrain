@@ -1,14 +1,17 @@
-import { Bot, Loader2 } from "lucide-react";
+import { Bot, CircleCheck, Clock, Loader2, TriangleAlert } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { Input } from "@/components/ui/input";
+import { MetricCard } from "@/components/metric-card";
+import { PageHelp } from "@/components/page-help";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
+import { cn } from "@/lib/utils";
 import { useRepositories } from "../../hooks/useRepositories";
-import { useCreateTask, useTaskList, useWorkflows } from "../../hooks/useTasks";
+import { useCreateTask, useTaskList, useTaskStatusCounts, useWorkflows } from "../../hooks/useTasks";
 import type { TaskStatus } from "../../types/task.types";
 
 const TASK_STATUS_TONE: Record<TaskStatus, StatusTone> = {
@@ -20,11 +23,22 @@ const TASK_STATUS_TONE: Record<TaskStatus, StatusTone> = {
   CANCELLED: "neutral",
 };
 
+const STATUS_FILTERS: { label: string; value: TaskStatus | "" }[] = [
+  { label: "All", value: "" },
+  { label: "Running", value: "RUNNING" },
+  { label: "Queued", value: "QUEUED" },
+  { label: "Needs approval", value: "PENDING_APPROVAL" },
+  { label: "Completed", value: "COMPLETED" },
+  { label: "Failed", value: "FAILED" },
+];
+
 export function AgentDashboardPage() {
   const { orgSlug = "" } = useParams();
   const { data: workflows } = useWorkflows(orgSlug);
   const { data: repositories } = useRepositories(orgSlug, {});
-  const { data: taskPage } = useTaskList(orgSlug);
+  const { data: counts } = useTaskStatusCounts(orgSlug);
+  const [statusFilter, setStatusFilter] = useState<TaskStatus | "">("");
+  const { data: taskPage } = useTaskList(orgSlug, 1, statusFilter || undefined);
   const createTask = useCreateTask(orgSlug);
 
   const [goal, setGoal] = useState("");
@@ -69,8 +83,39 @@ export function AgentDashboardPage() {
   return (
     <div className="space-y-6">
       <div className="animate-fade-up">
-        <h1 className="text-xl font-semibold text-foreground">AI Task Center</h1>
+        <div className="flex items-center gap-1.5">
+          <h1 className="text-xl font-semibold text-foreground">AI Task Center</h1>
+          <PageHelp title="How to run a task">
+            <p>
+              Type a <strong>Goal</strong> in plain English. Optionally pick a pre-built <strong>Workflow</strong> (e.g. PR review, issue triage) instead
+              of letting the planner decide the steps itself, and a <strong>Repository</strong> to scope it to.
+            </p>
+            <p>
+              Click any task to see its full step-by-step execution trace: each agent step, the tools it called, and validation results. Tasks that
+              write back to GitHub pause for approval before posting.
+            </p>
+            <p>Use the status pills above the list to filter, and the tiles above those for a running count by status.</p>
+          </PageHelp>
+        </div>
         <p className="text-sm text-muted-foreground">Run autonomous multi-step engineering agents against your repositories.</p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 animate-fade-up" style={{ animationDelay: "20ms" }}>
+        <MetricCard
+          label="Active"
+          value={(counts?.RUNNING ?? 0) + (counts?.QUEUED ?? 0) + (counts?.PENDING_APPROVAL ?? 0)}
+          icon={Clock}
+          tone="info"
+          hint="Tasks currently running, queued, or waiting for approval."
+        />
+        <MetricCard label="Completed" value={counts?.COMPLETED ?? 0} icon={CircleCheck} tone="success" />
+        <MetricCard label="Failed" value={counts?.FAILED ?? 0} icon={TriangleAlert} tone={counts && counts.FAILED > 0 ? "danger" : "neutral"} />
+        <MetricCard
+          label="Total tasks"
+          value={Object.values(counts ?? {}).reduce((sum, n) => sum + n, 0)}
+          icon={Bot}
+          tone="neutral"
+        />
       </div>
 
       <Card className="animate-fade-up" style={{ animationDelay: "40ms" }}>
@@ -153,8 +198,32 @@ export function AgentDashboardPage() {
         </CardContent>
       </Card>
 
+      <div className="flex flex-wrap gap-1.5">
+        {STATUS_FILTERS.map((f) => (
+          <button
+            key={f.label}
+            type="button"
+            onClick={() => setStatusFilter(f.value)}
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+              statusFilter === f.value
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-border text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       {taskPage?.items.length === 0 && (
-        <EmptyState icon={Bot} title="No agent tasks yet" description="Run a workflow to review a PR, triage an issue, or audit a repository." />
+        <EmptyState
+          icon={Bot}
+          title={statusFilter ? "No tasks with this status" : "No agent tasks yet"}
+          description={
+            statusFilter ? "Try a different filter, or clear it to see every task." : "Run a workflow to review a PR, triage an issue, or audit a repository."
+          }
+        />
       )}
 
       {taskPage && taskPage.items.length > 0 && (

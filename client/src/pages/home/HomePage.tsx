@@ -6,15 +6,21 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 import { AnalysisLedger } from "./components/analysis-ledger";
-import { ChatSpecimen, ScoreSpecimen, TraceSpecimen } from "./components/capability-specimens";
+import { ChatSpecimen, IncidentSpecimen, ScoreSpecimen, TraceSpecimen } from "./components/capability-specimens";
 import { McpTranscript } from "./components/mcp-transcript";
 
 const CAPABILITIES = [
   {
     label: "Health scoring",
     title: "A repository health score you can actually act on",
-    body: "Ten scores — architecture, security, performance, maintainability, and more — each backed by specific findings and a suggested fix, not just a number.",
+    body: "Ten scores - architecture, security, performance, maintainability, and more - each backed by specific findings and a suggested fix, not just a number.",
     specimen: <ScoreSpecimen />,
+  },
+  {
+    label: "Production intelligence",
+    title: "Know a problem exists before a customer tells you",
+    body: "Incidents get correlated against real deploys, commits, and pull requests automatically. EngineerBrain proposes a root cause with a confidence score, recommends a fix, and tells you when a rollback is the safer call.",
+    specimen: <IncidentSpecimen />,
   },
   {
     label: "Grounded chat",
@@ -33,7 +39,8 @@ const CAPABILITIES = [
 const STEPS = [
   { title: "Connect", body: "Connect a GitHub organization. One-time, takes under a minute." },
   { title: "Analyze & ask", body: "Get a health score and start asking questions the moment indexing finishes." },
-  { title: "Automate", body: "Let agents review pull requests and triage issues as they come in." },
+  { title: "Watch production", body: "Link a service to its deploys and metrics so incidents get correlated and triaged automatically." },
+  { title: "Automate", body: "Let agents review pull requests, triage issues, and recommend fixes as they come in." },
 ];
 
 function HomeHeader() {
@@ -81,11 +88,11 @@ export function HomePage() {
           <div className="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:items-center">
             <div className="animate-fade-up">
               <h1 className="text-4xl leading-[1.1] font-semibold tracking-tight text-balance text-foreground sm:text-5xl">
-                Know what's happening in every repository your team owns.
+                Know what's happening in every repository and every service your team owns - before anything breaks.
               </h1>
               <p className="mt-5 max-w-md text-base text-muted-foreground">
-                EngineerBrain scores architecture and security, answers questions with real citations, and reviews pull requests
-                automatically — before you have to ask.
+                EngineerBrain scores your codebase's architecture and security, watches production for incidents and proposes a root
+                cause before you go looking for one, answers questions with real citations, and reviews pull requests automatically.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <SignedOut>
@@ -117,15 +124,15 @@ export function HomePage() {
         <section className="border-t border-border bg-muted/30 py-16">
           <div className="mx-auto max-w-2xl px-6">
             <p className="text-lg leading-relaxed text-foreground">
-              Repositories don't fail all at once. A dependency drifts out of date. A pull request merges without anyone catching the
-              circular import it introduces. An issue sits open for three weeks because no one has time to reproduce it. Six months
-              later, the one person who understood why the auth flow works this way has left the team. None of it shows up until it's
+              Systems don't fail all at once. A dependency drifts out of date. A pull request merges without anyone catching the
+              circular import it introduces. A deploy goes out on a Friday and pages someone at 2am for a service three teams share,
+              and by the time anyone finds the log line, the person who'd recognize it is asleep. None of it shows up until it's
               expensive.
             </p>
           </div>
         </section>
 
-        {/* What it does — asymmetric, three distinct specimen types, not identical cards */}
+        {/* What it does — asymmetric, distinct specimen per capability, not identical cards */}
         <section className="mx-auto max-w-6xl px-6 py-20">
           <div className="space-y-16">
             {CAPABILITIES.map((cap, i) => (
@@ -211,8 +218,9 @@ export function HomePage() {
       </main>
 
       <footer className="border-t border-border py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-2 px-6 text-center font-mono text-xs text-muted-foreground">
-          <p>engineerbrain — engineering intelligence, reviewed by machines, decided by humans.</p>
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 px-6 text-center font-mono text-xs text-muted-foreground">
+          <img src="/logo-3.png" alt="EngineerBrain" className="h-6 w-auto opacity-70 dark:opacity-80" />
+          <p>engineering intelligence, reviewed by machines, decided by humans.</p>
           <div className="flex gap-4">
             <Link to="/sign-in" className="hover:text-foreground">
               Sign in

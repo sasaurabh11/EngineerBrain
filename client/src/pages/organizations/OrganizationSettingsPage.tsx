@@ -1,11 +1,12 @@
 import { Check, CheckCircle2, Copy, ExternalLink, KeyRound, Loader2, XCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import { Input } from "@/components/ui/input";
+import { PageHelp } from "@/components/page-help";
 import { Textarea } from "@/components/ui/textarea";
 import { useApiKeys, useCreateApiKey, useRevokeApiKey } from "../../hooks/useApiKeys";
 import { useConnectGitHub, useDisconnectGitHub, useGitHubStatus } from "../../hooks/useGithub";
@@ -291,6 +292,19 @@ export function OrganizationSettingsPage() {
 
   return (
     <div className="max-w-xl space-y-6 animate-fade-up">
+      <div className="flex items-center gap-1.5">
+        <h1 className="text-xl font-semibold text-foreground">Organization settings</h1>
+        <PageHelp title="What's on this page">
+          <p><strong>Details</strong>: name, description, and logo.</p>
+          <p><strong>GitHub</strong>: connect the account/installation repositories are imported from.</p>
+          <p>
+            <strong>API Keys</strong>: create organization-scoped keys for non-interactive clients like the{" "}
+            <Link to={`/app/${orgSlug}/mcp`}>EngineerBrain MCP server</Link> - shown once, so copy it immediately.
+          </p>
+          <p><strong>Danger zone</strong>: permanently delete this organization (owners only).</p>
+        </PageHelp>
+      </div>
+
       {githubCallbackResult === "connected" && (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success">
           <span className="flex items-center gap-2">

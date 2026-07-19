@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
+import { PageHelp } from "@/components/page-help";
 import { ScorePill } from "@/components/score-pill";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { ViewAllLink } from "@/components/view-all-link";
@@ -59,7 +60,16 @@ export function DashboardPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 animate-fade-up">
         <div>
           <span className="font-mono text-[11px] tracking-wide text-primary uppercase">{orgSlug}</span>
-          <h1 className="mt-0.5 text-xl font-semibold text-foreground">{organization?.name ?? "Dashboard"}</h1>
+          <div className="mt-0.5 flex items-center gap-1.5">
+            <h1 className="text-xl font-semibold text-foreground">{organization?.name ?? "Dashboard"}</h1>
+            <PageHelp title="What's on this page">
+              <p>Your organization's home view: repository health at a glance, recent agent tasks, AI conversations, and your team.</p>
+              <p>
+                Use <strong>New chat</strong> to ask the AI assistant about any repository, or <strong>Run agent task</strong> to kick off a workflow like
+                a PR review or issue triage. Click any repository row to jump straight to its health score.
+              </p>
+            </PageHelp>
+          </div>
           <p className="text-sm text-muted-foreground">Welcome back{me ? `, ${me.name.split(" ")[0]}` : ""}.</p>
         </div>
         <div className="flex gap-2">
@@ -201,7 +211,11 @@ export function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <EmptyState icon={MessageSquare} title="No conversations yet" />
+              <EmptyState
+                icon={MessageSquare}
+                title="No conversations yet"
+                description="Ask the AI assistant about a repository's architecture, security, or history."
+              />
             )}
           </div>
 
@@ -232,7 +246,7 @@ export function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <EmptyState icon={Users} title="No members yet" />
+              <EmptyState icon={Users} title="No members yet" description="Invite teammates from organization settings to collaborate." />
             )}
           </div>
         </Card>

@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { GoToProfileAction } from "@/components/go-to-profile-action";
 import { CircuitField } from "@/components/circuit-field";
+import { PageHelp } from "@/components/page-help";
 import { cn } from "@/lib/utils";
 import { useRepositories } from "../../hooks/useRepositories";
 import {
@@ -227,6 +228,14 @@ function ActiveConversationPanel({ orgSlug, conversationId }: { orgSlug: string;
       <div className="flex items-center gap-2 border-b border-border px-6 py-3">
         <Bot className="size-4 text-muted-foreground" />
         <p className="font-mono text-sm font-medium text-foreground">{conversation?.repositoryName ?? "Organization-wide"}</p>
+        <PageHelp title="How to use AI Chat">
+          <p>Ask questions grounded in your indexed repositories - answers cite the real files they're based on.</p>
+          <p>
+            Click a citation chip to see which file backed an answer. Expand <strong>N actions taken</strong> under a response to see exactly which
+            tools the assistant called and what they returned.
+          </p>
+          <p>Only repositories indexed in the <strong>Knowledge</strong> tab can be searched - index one first if answers seem thin.</p>
+        </PageHelp>
       </div>
 
       <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
@@ -240,6 +249,7 @@ function ActiveConversationPanel({ orgSlug, conversationId }: { orgSlug: string;
             role={m.role}
             content={m.content}
             citations={m.citations}
+            toolInvocations={m.toolInvocations}
             onCopy={() => navigator.clipboard.writeText(m.content)}
           />
         ))}

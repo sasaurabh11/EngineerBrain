@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { Input } from "@/components/ui/input";
+import { PageHelp } from "@/components/page-help";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCreateInvitation, useInvitations, useRevokeInvitation } from "../../hooks/useInvitations";
@@ -84,6 +85,17 @@ export function MembersPage() {
 
   return (
     <div className="space-y-6 animate-fade-up">
+      <div className="flex items-center gap-1.5">
+        <h1 className="text-xl font-semibold text-foreground">Members</h1>
+        <PageHelp title="What's on this page">
+          <p>Everyone in this organization, their role, and pending invitations.</p>
+          <p>
+            <strong>Managers and above</strong> can change roles, remove members, and invite new ones by email - the invited person gets a link that
+            adds them once they accept.
+          </p>
+        </PageHelp>
+      </div>
+
       <Card>
         <CardHeader className="border-b border-border pb-3">
           <CardTitle className="font-mono text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Members</CardTitle>
@@ -96,7 +108,9 @@ export function MembersPage() {
               <Skeleton className="h-12 w-full" />
             </div>
           )}
-          {members && members.length === 0 && <EmptyState icon={Users} title="No members yet" />}
+          {members && members.length === 0 && (
+            <EmptyState icon={Users} title="No members yet" description="Invite teammates below to give them access to this organization." />
+          )}
           <ul className="divide-y divide-border">
             {members?.map((member) => (
               <li key={member.id} className="group relative flex items-center justify-between gap-3 py-3 transition-colors hover:bg-accent/50">

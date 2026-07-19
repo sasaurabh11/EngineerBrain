@@ -44,6 +44,26 @@ export function ChatSpecimen() {
   );
 }
 
+export function IncidentSpecimen() {
+  return (
+    <div className="space-y-3 rounded-lg border border-border bg-card p-4 font-mono text-sm">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-2 text-foreground">
+          <span className="size-1.5 shrink-0 rounded-full bg-destructive" /> checkout-api returning 500s
+        </span>
+        <span className="text-xs text-destructive">CRITICAL</span>
+      </div>
+      <p className="leading-relaxed text-muted-foreground">
+        Root cause: deploy <span className="text-foreground">a3f9c1</span> dropped the DB connection pool size below peak load —{" "}
+        <span className="font-semibold text-foreground">87%</span> confidence.
+      </p>
+      <span className="inline-flex w-fit items-center rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs text-warning">
+        rollback recommended
+      </span>
+    </div>
+  );
+}
+
 const TRACE_STEPS = [
   { label: "get_pr_diff", status: "done" as const },
   { label: "ci_status", status: "done" as const },

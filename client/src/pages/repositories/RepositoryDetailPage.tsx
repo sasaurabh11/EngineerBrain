@@ -1,13 +1,17 @@
 import {
   Bot,
   ChevronDown,
+  CircleDot,
   ExternalLink,
   GitBranch,
   GitCommitHorizontal,
+  GitFork,
   GitPullRequest,
+  HardDrive,
   Loader2,
   RefreshCw,
   Sparkles,
+  Star,
   Users,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -20,9 +24,11 @@ import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { GoToProfileAction } from "@/components/go-to-profile-action";
 import { MarkdownContent } from "@/components/markdown-content";
+import { MetricCard } from "@/components/metric-card";
+import { PageHelp } from "@/components/page-help";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
+import { cn, formatRelativeTime, formatSize } from "@/lib/utils";
 import { useOrganization } from "../../hooks/useOrganizations";
 import { useIndexStatus, useReindex, useTriggerIndex } from "../../hooks/useIndexing";
 import {
@@ -37,6 +43,8 @@ import {
 import { useCreateTask, useLatestWorkflowTask } from "../../hooks/useTasks";
 import type { SyncStatus } from "../../types/repository.types";
 import type { TaskStatus } from "../../types/task.types";
+import { CommitActivityChart } from "./components/CommitActivityChart";
+import { ContributorsChart } from "./components/ContributorsChart";
 import { HealthDashboard } from "./components/HealthDashboard";
 
 const TABS = ["overview", "knowledge", "health", "branches", "commits", "contributors", "pull-requests", "issues"] as const;
@@ -228,6 +236,13 @@ export function RepositoryDetailPage() {
             <a href={repo.htmlUrl} target="_blank" rel="noreferrer" aria-label="Open on GitHub" className="text-muted-foreground hover:text-foreground">
               <ExternalLink className="size-4" />
             </a>
+            <PageHelp title="What each tab does">
+              <p><strong>Overview</strong>: raw repo metadata and stats.</p>
+              <p><strong>Knowledge</strong>: indexing status for AI chat - index this repo so questions about it are grounded in real code.</p>
+              <p><strong>Health</strong>: 11 architecture/security/performance/etc. scores (hover the ⓘ on each for what it measures), findings, and design patterns.</p>
+              <p><strong>Branches / Commits / Contributors</strong>: synced history from GitHub.</p>
+              <p><strong>Pull Requests / Issues</strong>: click <strong>Run AI review</strong> or <strong>Run AI triage</strong> on any item for an inline AI analysis.</p>
+            </PageHelp>
           </div>
           <p className="text-sm text-muted-foreground">{repo.description ?? "No description"}</p>
         </div>
@@ -257,17 +272,26 @@ export function RepositoryDetailPage() {
           ))}
         </TabsList>
 
-        <TabsContent value="overview" className="grid gap-4 pt-4 sm:grid-cols-2 lg:grid-cols-3">
-          <InfoRow label="Visibility" value={repo.visibility} />
-          <InfoRow label="Default branch" value={repo.defaultBranch} />
-          <InfoRow label="Primary language" value={repo.primaryLanguage ?? "—"} />
-          <InfoRow label="Topics" value={repo.topics.length > 0 ? repo.topics.join(", ") : "—"} />
-          <InfoRow label="Stars" value={String(repo.starsCount)} />
-          <InfoRow label="Forks" value={String(repo.forksCount)} />
-          <InfoRow label="Open issues" value={String(repo.openIssuesCount)} />
-          <InfoRow label="Size" value={`${repo.sizeKb} KB`} />
-          <InfoRow label="Last pushed" value={repo.githubPushedAt ? new Date(repo.githubPushedAt).toLocaleString() : "—"} />
-          <InfoRow label="Last synced" value={repo.lastSyncedAt ? new Date(repo.lastSyncedAt).toLocaleString() : "Never"} />
+        <TabsContent value="overview" className="space-y-4 pt-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <MetricCard label="Stars" value={repo.starsCount} icon={Star} tone="warning" />
+            <MetricCard label="Forks" value={repo.forksCount} icon={GitFork} tone="info" />
+            <MetricCard
+              label="Open issues"
+              value={repo.openIssuesCount}
+              icon={CircleDot}
+              tone={repo.openIssuesCount > 0 ? "warning" : "success"}
+            />
+            <MetricCard label="Repository size" value={formatSize(repo.sizeKb)} icon={HardDrive} tone="neutral" />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <InfoRow label="Visibility" value={repo.visibility} />
+            <InfoRow label="Default branch" value={repo.defaultBranch} />
+            <InfoRow label="Primary language" value={repo.primaryLanguage ?? "—"} />
+            <InfoRow label="Topics" value={repo.topics.length > 0 ? repo.topics.join(", ") : "—"} />
+            <InfoRow label="Last pushed" value={repo.githubPushedAt ? formatRelativeTime(repo.githubPushedAt) : "—"} />
+            <InfoRow label="Last synced" value={formatRelativeTime(repo.lastSyncedAt)} />
+          </div>
         </TabsContent>
 
         <TabsContent value="knowledge" className="space-y-4 pt-4">
@@ -352,14 +376,15 @@ export function RepositoryDetailPage() {
               ))}
               {branches?.length === 0 && (
                 <li className="p-6">
-                  <EmptyState icon={GitBranch} title="No branches synced yet" />
+                  <EmptyState icon={GitBranch} title="No branches synced yet" description="Sync this repository to pull in its branch list from GitHub." />
                 </li>
               )}
             </ul>
           </Card>
         </TabsContent>
 
-        <TabsContent value="commits" className="pt-4">
+        <TabsContent value="commits" className="space-y-4 pt-4">
+          {commits && <CommitActivityChart commits={commits} />}
           <Card className="py-0">
             <ul className="divide-y divide-border">
               {commits?.map((commit) => (
@@ -376,14 +401,15 @@ export function RepositoryDetailPage() {
               ))}
               {commits?.length === 0 && (
                 <li className="p-6">
-                  <EmptyState icon={GitCommitHorizontal} title="No commits synced yet" />
+                  <EmptyState icon={GitCommitHorizontal} title="No commits synced yet" description="Sync this repository to pull in its commit history from GitHub." />
                 </li>
               )}
             </ul>
           </Card>
         </TabsContent>
 
-        <TabsContent value="contributors" className="pt-4">
+        <TabsContent value="contributors" className="space-y-4 pt-4">
+          {contributors && <ContributorsChart contributors={contributors} />}
           <Card className="py-0">
             <ul className="divide-y divide-border">
               {contributors?.map((contributor) => (
@@ -401,7 +427,7 @@ export function RepositoryDetailPage() {
               ))}
               {contributors?.length === 0 && (
                 <li className="p-6">
-                  <EmptyState icon={Users} title="No contributors synced yet" />
+                  <EmptyState icon={Users} title="No contributors synced yet" description="Sync this repository to pull in its contributor list from GitHub." />
                 </li>
               )}
             </ul>
@@ -446,7 +472,7 @@ export function RepositoryDetailPage() {
               })}
               {pullRequests?.length === 0 && (
                 <li className="p-6">
-                  <EmptyState icon={GitPullRequest} title="No pull requests synced yet" />
+                  <EmptyState icon={GitPullRequest} title="No pull requests synced yet" description="Sync this repository to pull in its pull request history from GitHub." />
                 </li>
               )}
             </ul>
@@ -496,7 +522,7 @@ export function RepositoryDetailPage() {
               })}
               {issues?.length === 0 && (
                 <li className="p-6">
-                  <EmptyState icon={GitPullRequest} title="No issues synced yet" />
+                  <EmptyState icon={CircleDot} title="No issues synced yet" description="Sync this repository to pull in its issue history from GitHub." />
                 </li>
               )}
             </ul>

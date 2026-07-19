@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
+import { PageHelp } from "@/components/page-help";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useOrganization } from "../../hooks/useOrganizations";
 import { DeploymentsTab } from "./components/DeploymentsTab";
@@ -29,7 +30,24 @@ export function ProductionPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">Production Intelligence</h1>
+        <div className="flex items-center gap-1.5">
+          <h1 className="text-xl font-semibold text-foreground">Production Intelligence</h1>
+          <PageHelp title="How Production Intelligence works">
+            <p>
+              <strong>Services</strong> tab: register a real piece of your infrastructure and optionally link a repo (for commit/PR evidence) and an
+              integration (for deployment/metric evidence).
+            </p>
+            <p>
+              <strong>Integrations</strong> tab: connect Prometheus or GitHub Actions, or copy the Alertmanager webhook URL to auto-create incidents from
+              real alerts.
+            </p>
+            <p>
+              <strong>Incidents</strong> tab: use "Declare Incident" to manually open one and watch the real correlation → root cause → recommendations
+              pipeline run end to end.
+            </p>
+            <p>Click into any incident for its timeline, evidence, root cause, recommendations, and an on-demand AI postmortem.</p>
+          </PageHelp>
+        </div>
         <p className="text-sm text-muted-foreground">Incidents, root cause analysis, deployments, and service health - grounded in your connected systems.</p>
       </div>
 

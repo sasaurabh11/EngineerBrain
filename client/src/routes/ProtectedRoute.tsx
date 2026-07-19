@@ -1,5 +1,4 @@
 import { useAuth } from "@clerk/clerk-react";
-import { Loader2 } from "lucide-react";
 import { Navigate, Outlet } from "react-router-dom";
 
 export function ProtectedRoute() {
@@ -7,8 +6,9 @@ export function ProtectedRoute() {
 
   if (!isLoaded) {
     return (
-      <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
-        <Loader2 className="mr-2 size-4 animate-spin" /> Loading…
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-background">
+        <img src="/logo-1.png" alt="EngineerBrain" className="h-28 w-auto animate-fade-up" />
+        <p className="animate-pulse-dot text-xs text-muted-foreground">Loading…</p>
       </div>
     );
   }
