@@ -14,33 +14,29 @@ def _status_code_of(exc: Exception) -> int | None:
     return None
 
 
-def raise_provider_error(exc: Exception) -> NoReturn:
+def classify_provider_error(exc: Exception) -> dict:
     """Classifies an exception raised while calling an LLM provider (Gemini or
-    Groq, via get_chat_model) and re-raises it as an HTTPException with a
-    structured, user-safe detail - never leaks the raw provider exception
-    (which can include request/response internals) to the client."""
+    Groq, via get_chat_model) into a structured, user-safe {code, message}
+    detail - never leaks the raw provider exception (which can include
+    request/response internals) to the client. Shared by raise_provider_error
+    (for normal request/response endpoints) and streaming endpoints, which
+    can't raise an HTTPException mid-stream since headers are already sent."""
     if isinstance(exc, RuntimeError) and "is not configured" in str(exc):
-        raise HTTPException(
-            status_code=503,
-            detail={"code": "not_configured", "message": f"No AI provider is configured for this request. {_PROFILE_HINT}"},
-        ) from exc
+        return {"code": "not_configured", "message": f"No AI provider is configured for this request. {_PROFILE_HINT}"}
 
     status = _status_code_of(exc)
     if status == 429:
-        raise HTTPException(
-            status_code=429,
-            detail={"code": "rate_limited", "message": f"The AI provider is rate-limiting requests right now. {_PROFILE_HINT}"},
-        ) from exc
+        return {"code": "rate_limited", "message": f"The AI provider is rate-limiting requests right now. {_PROFILE_HINT}"}
     if status in (401, 403):
-        raise HTTPException(
-            status_code=502,
-            detail={"code": "auth_error", "message": f"The AI provider rejected the request's credentials. {_PROFILE_HINT}"},
-        ) from exc
+        return {"code": "auth_error", "message": f"The AI provider rejected the request's credentials. {_PROFILE_HINT}"}
 
-    raise HTTPException(
-        status_code=502,
-        detail={
-            "code": "provider_error",
-            "message": f"The AI provider returned an error. If this keeps happening, {_PROFILE_HINT_MID_SENTENCE}",
-        },
-    ) from exc
+    return {
+        "code": "provider_error",
+        "message": f"The AI provider returned an error. If this keeps happening, {_PROFILE_HINT_MID_SENTENCE}",
+    }
+
+
+def raise_provider_error(exc: Exception) -> NoReturn:
+    detail = classify_provider_error(exc)
+    status = {"not_configured": 503, "rate_limited": 429, "auth_error": 502}.get(detail["code"], 502)
+    raise HTTPException(status_code=status, detail=detail) from exc

@@ -52,6 +52,12 @@ interface ActiveToolCall {
 export function useSendMessage(orgSlug: string, conversationId: string | undefined) {
   const queryClient = useQueryClient();
   const [isStreaming, setIsStreaming] = useState(false);
+  // The just-sent question, shown immediately (before the server has even
+  // responded) so the user sees their own message right away instead of only
+  // once the assistant's reply comes back. Cleared only after the
+  // conversation refetch below has actually landed, so it never flashes away
+  // before the real, persisted message takes its place.
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState("");
   const [activeTools, setActiveTools] = useState<ActiveToolCall[]>([]);
   const [citations, setCitations] = useState<Citation[]>([]);
@@ -63,6 +69,7 @@ export function useSendMessage(orgSlug: string, conversationId: string | undefin
     async (message: string) => {
       if (!conversationId) return;
 
+      setPendingMessage(message);
       setIsStreaming(true);
       setStreamingText("");
       setActiveTools([]);
@@ -77,6 +84,10 @@ export function useSendMessage(orgSlug: string, conversationId: string | undefin
         for await (const event of streamMessage(orgSlug, conversationId, message, controller.signal)) {
           if (event.type === "text-delta") {
             setStreamingText((prev) => prev + event.text);
+          } else if (event.type === "replace") {
+            // The Critic found the streamed answer ungrounded and the
+            // Synthesizer regenerated it - swap the buffer, don't append.
+            setStreamingText(event.text);
           } else if (event.type === "tool-call") {
             setActiveTools((prev) => [...prev, { name: event.name, status: "running" }]);
           } else if (event.type === "tool-result") {
@@ -95,9 +106,15 @@ export function useSendMessage(orgSlug: string, conversationId: string | undefin
           setError(err instanceof Error ? err.message : "Something went wrong");
         }
       } finally {
-        setIsStreaming(false);
-        queryClient.invalidateQueries({ queryKey: ["ai", "conversations", orgSlug, conversationId] });
-        queryClient.invalidateQueries({ queryKey: ["ai", "conversations", orgSlug], exact: true });
+        try {
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["ai", "conversations", orgSlug, conversationId] }),
+            queryClient.invalidateQueries({ queryKey: ["ai", "conversations", orgSlug], exact: true }),
+          ]);
+        } finally {
+          setIsStreaming(false);
+          setPendingMessage(null);
+        }
       }
     },
     [orgSlug, conversationId, queryClient],
@@ -107,5 +124,5 @@ export function useSendMessage(orgSlug: string, conversationId: string | undefin
     abortRef.current?.abort();
   }, []);
 
-  return { send, cancel, isStreaming, streamingText, activeTools, citations, error, errorCode };
+  return { send, cancel, isStreaming, pendingMessage, streamingText, activeTools, citations, error, errorCode };
 }

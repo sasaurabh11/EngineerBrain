@@ -1,4 +1,5 @@
-import { callAiService } from "../../../infra/aiService/aiServiceClient.ts";
+import { ServiceUnavailableError } from "../../../common/errors/AppError.ts";
+import { callAiService, streamAiService } from "../../../infra/aiService/aiServiceClient.ts";
 import type { AiProviderSelection } from "../../../infra/aiService/providerConfig.ts";
 
 function providerBody(providerConfig?: AiProviderSelection): { provider: "gemini" | "groq"; api_key: string | null } {
@@ -71,6 +72,32 @@ export async function callAgentStepWithRetry(
     return first;
   }
   return callAgentStep(role, messages, tools, systemContext, signal, providerConfig);
+}
+
+/** Real per-token streaming, tool-free only (the Synthesizer's final answer is
+ * the sole call site whose raw text is shown to the user live - the
+ * Retriever's tool-calling rounds stay on callAgentStep, since only the tool
+ * names/status are surfaced there, not free text). */
+export async function* callAgentStepStream(
+  role: AgentRole,
+  messages: ChatMessagePayload[],
+  systemContext?: string,
+  signal?: AbortSignal,
+  providerConfig?: AiProviderSelection,
+): AsyncGenerator<string> {
+  const stream = streamAiService("/internal/agents/agent-step-stream", {
+    body: { role, messages, tools: [], system_context: systemContext ?? null, ...providerBody(providerConfig) },
+    signal,
+  });
+
+  for await (const frame of stream) {
+    if (frame.error) {
+      throw new ServiceUnavailableError(frame.error.message, frame.error.code);
+    }
+    if (frame.text) {
+      yield frame.text;
+    }
+  }
 }
 
 export interface PlanStepPayload {

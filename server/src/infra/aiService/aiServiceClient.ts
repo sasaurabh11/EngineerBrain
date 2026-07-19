@@ -60,3 +60,61 @@ export async function callAiService<T>(path: string, options: AiServiceRequestOp
     options.signal?.removeEventListener("abort", onExternalAbort);
   }
 }
+
+interface AiServiceStreamFrame {
+  text?: string;
+  done?: boolean;
+  error?: { code?: string; message: string };
+}
+
+/** SSE variant of callAiService, for the one ai-service endpoint that streams
+ * real token deltas (agent-step-stream) instead of a single JSON body. */
+export async function* streamAiService(path: string, options: Pick<AiServiceRequestOptions, "body" | "signal"> = {}): AsyncGenerator<AiServiceStreamFrame> {
+  if (!isAiServiceConfigured()) {
+    throw new ServiceUnavailableError("AI service is not configured on this server");
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  const onExternalAbort = () => controller.abort();
+  options.signal?.addEventListener("abort", onExternalAbort);
+
+  try {
+    const response = await fetch(`${env.AI_SERVICE_URL}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Internal-Api-Key": env.AI_SERVICE_API_KEY!,
+      },
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      signal: controller.signal,
+    });
+
+    if (!response.ok || !response.body) {
+      const rawBody = await response.text().catch(() => "");
+      throw new ServiceUnavailableError(rawBody || `AI service stream request failed (${response.status})`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const frames = buffer.split("\n\n");
+      buffer = frames.pop() ?? "";
+
+      for (const raw of frames) {
+        const line = raw.split("\n").find((l) => l.startsWith("data: "));
+        if (!line) continue;
+        yield JSON.parse(line.slice("data: ".length)) as AiServiceStreamFrame;
+      }
+    }
+  } finally {
+    clearTimeout(timeout);
+    options.signal?.removeEventListener("abort", onExternalAbort);
+  }
+}

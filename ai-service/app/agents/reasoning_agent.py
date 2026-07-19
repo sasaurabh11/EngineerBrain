@@ -1,3 +1,4 @@
+from collections.abc import AsyncIterator
 from typing import Annotated, Literal, TypedDict
 
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage
@@ -74,3 +75,28 @@ async def run_reasoning_step(
     graph = build_reasoning_graph(role, tools, system_context, provider, api_key)
     result = await graph.ainvoke({"messages": history})
     return result["messages"][-1]
+
+
+async def stream_reasoning_step(
+    role: AgentRole,
+    history: list[BaseMessage],
+    system_context: str | None = None,
+    provider: str = "gemini",
+    api_key: str | None = None,
+) -> AsyncIterator[str]:
+    """Streams the model's real output tokens as they're generated - used only
+    for tool-free, single-shot generation (the Synthesizer's final answer).
+    Bypasses build_reasoning_graph/LangGraph on purpose: LangGraph's own
+    streaming modes are built around graph state transitions, not raw token
+    deltas, and this call never binds tools, so a plain `llm.astream(...)`
+    is the direct, correct way to get real per-token output."""
+    llm = get_chat_model(provider=provider, api_key=api_key)
+    system_prompt = _ROLE_SYSTEM_PROMPTS[role]
+    if system_context:
+        system_prompt = f"{system_prompt}\n\n{system_context}"
+
+    async for chunk in llm.astream([SystemMessage(content=system_prompt), *history]):
+        # Some providers emit non-string content blocks (e.g. multimodal parts) -
+        # only forward plain text deltas, matching what the client renders.
+        if isinstance(chunk.content, str) and chunk.content:
+            yield chunk.content

@@ -14,17 +14,29 @@ function CodeBlock(props: { className?: string; children?: React.ReactNode }) {
   }
 
   return (
-    <SyntaxHighlighter language={match[1]} style={oneDark} PreTag="div" customStyle={{ borderRadius: 8, fontSize: 13, margin: 0 }}>
-      {codeText}
-    </SyntaxHighlighter>
+    <div className="overflow-x-auto">
+      <SyntaxHighlighter language={match[1]} style={oneDark} PreTag="div" customStyle={{ borderRadius: 8, fontSize: 13, margin: 0 }}>
+        {codeText}
+      </SyntaxHighlighter>
+    </div>
   );
 }
 
+// Wide GFM tables must scroll within their own container, never force the
+// chat bubble (a flex item with a max-width) wider than it - see min-w-0 on
+// MessageBubble's bubble div for the other half of this fix.
+function Table(props: React.ComponentProps<"table">) {
+  return (
+    <div className="overflow-x-auto">
+      <table {...props} />
+    </div>
+  );
+}
 
 export function MarkdownContent({ content, className }: { content: string; className?: string }) {
   return (
     <div className={cn("prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent", className)}>
-      <Markdown remarkPlugins={[remarkGfm]} components={{ code: CodeBlock }}>
+      <Markdown remarkPlugins={[remarkGfm]} components={{ code: CodeBlock, table: Table }}>
         {content}
       </Markdown>
     </div>

@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { GoToProfileAction } from "@/components/go-to-profile-action";
 import { CircuitField } from "@/components/circuit-field";
+import { MarkdownContent } from "@/components/markdown-content";
 import { PageHelp } from "@/components/page-help";
 import { cn } from "@/lib/utils";
 import { useRepositories } from "../../hooks/useRepositories";
@@ -44,7 +45,7 @@ function ConversationSidebar({
   const navigate = useNavigate();
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <div className="border-b border-sidebar-border p-3">
         <Button asChild className="w-full justify-start gap-2">
           <Link to={`/app/${orgSlug}/ai`} onClick={onNavigate}>
@@ -52,7 +53,7 @@ function ConversationSidebar({
           </Link>
         </Button>
       </div>
-      <div className="flex-1 space-y-0.5 overflow-y-auto p-2">
+      <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-2">
         {conversations?.length === 0 && (
           <p className="p-3 text-center text-xs text-muted-foreground">No conversations yet</p>
         )}
@@ -182,7 +183,10 @@ function ToolCallChip({ name, status }: { name: string; status: "running" | "SUC
 
 function ActiveConversationPanel({ orgSlug, conversationId }: { orgSlug: string; conversationId: string }) {
   const { data: conversation, isLoading, isError, refetch } = useConversation(orgSlug, conversationId);
-  const { send, cancel, isStreaming, streamingText, activeTools, citations, error, errorCode } = useSendMessage(orgSlug, conversationId);
+  const { send, cancel, isStreaming, pendingMessage, streamingText, activeTools, citations, error, errorCode } = useSendMessage(
+    orgSlug,
+    conversationId,
+  );
   const [searchParams] = useSearchParams();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -224,7 +228,7 @@ function ActiveConversationPanel({ orgSlug, conversationId }: { orgSlug: string;
   }
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b border-border px-6 py-3">
         <Bot className="size-4 text-muted-foreground" />
         <p className="font-mono text-sm font-medium text-foreground">{conversation?.repositoryName ?? "Organization-wide"}</p>
@@ -238,7 +242,7 @@ function ActiveConversationPanel({ orgSlug, conversationId }: { orgSlug: string;
         </PageHelp>
       </div>
 
-      <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-6">
         {conversation?.messages.length === 0 && !isStreaming && (
           <EmptyState icon={MessageSquare} title="No messages yet" description="Ask a question to get started." />
         )}
@@ -254,12 +258,14 @@ function ActiveConversationPanel({ orgSlug, conversationId }: { orgSlug: string;
           />
         ))}
 
+        {pendingMessage && <MessageBubble role="USER" content={pendingMessage} />}
+
         {isStreaming && (
           <div className="flex gap-3">
             <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
               <Bot className="size-4" />
             </div>
-            <div className="max-w-2xl space-y-2.5">
+            <div className="min-w-0 max-w-2xl space-y-2.5">
               {activeTools.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {activeTools.map((t, i) => (
@@ -268,8 +274,8 @@ function ActiveConversationPanel({ orgSlug, conversationId }: { orgSlug: string;
                 </div>
               )}
               {streamingText ? (
-                <div className="rounded-xl border border-border bg-card px-4 py-3">
-                  <p className="text-sm whitespace-pre-wrap">{streamingText}</p>
+                <div className="min-w-0 rounded-xl border border-border bg-card px-4 py-3">
+                  <MarkdownContent content={streamingText} />
                   {citations.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border pt-2.5">
                       {citations.map((c) => (
@@ -335,7 +341,7 @@ export function AiChatPage() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
-    <div className="-m-4 flex h-[calc(100vh-3.25rem)] md:-m-6">
+    <div className="-m-4 flex h-[calc(100vh-3.25rem)] overflow-hidden md:-m-6">
       <aside className="hidden w-64 shrink-0 border-r border-border bg-sidebar md:flex">
         <ConversationSidebar orgSlug={orgSlug} activeId={conversationId} />
       </aside>
@@ -349,7 +355,7 @@ export function AiChatPage() {
         </SheetContent>
       </Sheet>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="flex items-center gap-2 border-b border-border p-2 md:hidden">
           <Button variant="ghost" size="icon" onClick={() => setMobileSidebarOpen(true)} aria-label="Open conversations">
             <Menu className="size-4" />

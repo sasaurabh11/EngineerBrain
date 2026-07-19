@@ -1,9 +1,10 @@
 import { AppError, NotFoundError } from "../../common/errors/AppError.ts";
+import { logger } from "../../config/logger.ts";
 import type { AiProviderSelection } from "../../infra/aiService/providerConfig.ts";
 import { indexingService } from "../indexing/indexing.service.ts";
 import { organizationRepository } from "../organization/organization.repository.ts";
 import { repoRepository } from "../repo/repo.repository.ts";
-import { callAgentStep, callAgentStepWithRetry, callValidate, type ChatMessagePayload } from "./agents/agentClient.ts";
+import { callAgentStep, callAgentStepStream, callAgentStepWithRetry, callValidate, type ChatMessagePayload } from "./agents/agentClient.ts";
 import type { AiStreamEvent, ConversationDetailResponseDto, ConversationResponseDto } from "./ai.types.ts";
 import { extractCitations, type CitationCandidate } from "./citations.ts";
 import { conversationRepository } from "./conversation.repository.ts";
@@ -150,11 +151,14 @@ export const aiService = {
       try {
         step = await callAgentStep("retriever", messages, tools, systemContext, signal, providerConfig);
       } catch (err) {
-        yield {
-          type: "error",
-          message: err instanceof Error ? err.message : "Retriever agent call failed",
-          code: err instanceof AppError ? err.code : undefined,
-        };
+        // Not surfaced as a client-facing "error" event: the Synthesizer
+        // still runs below with whatever evidence was gathered so far (even
+        // none) and typically produces a reasonable, if degraded, answer -
+        // a transient retriever hiccup shouldn't paint a real, successful
+        // response with a scary "something went wrong" banner. Only a
+        // failure that leaves the Synthesizer with nothing at all becomes a
+        // genuine error event, below.
+        logger.warn({ err, round }, "Retriever agent step failed - continuing to synthesis with evidence gathered so far");
         break;
       }
 
@@ -193,23 +197,29 @@ export const aiService = {
     // --- Synthesizer: write the final answer from a fresh, clean prompt built
     // from the gathered evidence - NOT by replaying the retriever's raw
     // multi-round transcript, since Gemini's thinking models can hallucinate a
-    // tool call even with no tools bound once several tool rounds accumulate. ---
+    // tool call even with no tools bound once several tool rounds accumulate.
+    // Streamed token-by-token, since this is the one call whose raw text the
+    // user actually watches appear live. ---
     let assembledText = "";
+    let synthesisFailed = false;
     try {
       const synthesisMessages: ChatMessagePayload[] = [{ role: "user", content: buildSynthesisPrompt(question, evidence) }];
-      const synthesis = await callAgentStepWithRetry("synthesizer", synthesisMessages, [], systemContext, signal, providerConfig);
-      assembledText = synthesis.message.content ?? "";
+      for await (const chunk of callAgentStepStream("synthesizer", synthesisMessages, systemContext, signal, providerConfig)) {
+        assembledText += chunk;
+        yield { type: "text-delta", text: chunk };
+      }
 
-      // --- Critic: one bounded grounding check + revision, not persisted ---
-      const verdict = await callValidate(assembledText, evidence, signal, providerConfig);
-      if (!verdict.passed) {
-        const revisionMessages: ChatMessagePayload[] = [
-          { role: "user", content: buildRevisionPrompt(question, evidence, assembledText, verdict.issues) },
-        ];
-        const revision = await callAgentStepWithRetry("synthesizer", revisionMessages, [], systemContext, signal, providerConfig);
-        assembledText = revision.message.content || assembledText;
+      // Same anti-flakiness protection as callAgentStepWithRetry - a stream
+      // that yields nothing is the streaming equivalent of an empty result.
+      if (!assembledText) {
+        const retry = await callAgentStepWithRetry("synthesizer", synthesisMessages, [], systemContext, signal, providerConfig);
+        assembledText = retry.message.content ?? "";
+        if (assembledText) {
+          yield { type: "text-delta", text: assembledText };
+        }
       }
     } catch (err) {
+      synthesisFailed = true;
       yield {
         type: "error",
         message: err instanceof Error ? err.message : "Synthesizer agent call failed",
@@ -217,7 +227,30 @@ export const aiService = {
       };
     }
 
-    yield { type: "text-delta", text: assembledText };
+    // --- Critic: one bounded grounding check + revision, not persisted.
+    // Deliberately in its own try/catch: a genuinely good answer has already
+    // been streamed to the user above by this point, so a transient failure
+    // in this secondary check (rate limit, provider hiccup) must not surface
+    // as a stream "error" event - that would show an error banner under a
+    // perfectly good, already-visible response. Just skip the revision and
+    // keep the streamed answer as-is. ---
+    if (!synthesisFailed && assembledText) {
+      try {
+        const verdict = await callValidate(assembledText, evidence, signal, providerConfig);
+        if (!verdict.passed) {
+          const revisionMessages: ChatMessagePayload[] = [
+            { role: "user", content: buildRevisionPrompt(question, evidence, assembledText, verdict.issues) },
+          ];
+          const revision = await callAgentStepWithRetry("synthesizer", revisionMessages, [], systemContext, signal, providerConfig);
+          if (revision.message.content && revision.message.content !== assembledText) {
+            assembledText = revision.message.content;
+            yield { type: "replace", text: assembledText };
+          }
+        }
+      } catch {
+        // Grounding check/revision failed - the streamed answer stands as-is.
+      }
+    }
 
     const assistantMessage = await conversationRepository.createMessage(conversationId, "ASSISTANT", assembledText);
     for (const invocation of pendingToolInvocations) {

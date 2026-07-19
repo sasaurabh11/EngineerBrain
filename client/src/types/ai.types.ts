@@ -43,5 +43,6 @@ export type AiStreamEvent =
   | { type: "text-delta"; text: string }
   | { type: "tool-call"; name: string; args: Record<string, unknown> }
   | { type: "tool-result"; name: string; status: "SUCCESS" | "FAILED" }
+  | { type: "replace"; text: string }
   | { type: "done"; messageId: string; citations: Citation[] }
   | { type: "error"; message: string; code?: string };

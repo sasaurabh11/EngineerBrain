@@ -102,7 +102,12 @@ export function MessageBubble({ role, content, citations, toolInvocations, onCop
         </div>
       )}
 
-      <div className={cn("group relative max-w-2xl rounded-xl px-4 py-3", isUser ? "bg-primary text-primary-foreground" : "border border-border bg-card")}>
+      <div
+        className={cn(
+          "group relative min-w-0 max-w-2xl rounded-xl px-4 py-3",
+          isUser ? "bg-primary text-primary-foreground" : "border border-border bg-card",
+        )}
+      >
         {isUser ? <p className="text-sm whitespace-pre-wrap">{content}</p> : <MarkdownContent content={content} />}
 
         {!isUser && citations && citations.length > 0 && (
